@@ -1,0 +1,141 @@
+package com.suscipio_solutions.consecro_mud.Abilities.Prayers;
+import java.util.Vector;
+
+import com.suscipio_solutions.consecro_mud.Abilities.interfaces.Ability;
+import com.suscipio_solutions.consecro_mud.Behaviors.interfaces.Behavior;
+import com.suscipio_solutions.consecro_mud.Common.interfaces.CMMsg;
+import com.suscipio_solutions.consecro_mud.Common.interfaces.CharStats;
+import com.suscipio_solutions.consecro_mud.Common.interfaces.Faction;
+import com.suscipio_solutions.consecro_mud.Common.interfaces.PhyStats;
+import com.suscipio_solutions.consecro_mud.Items.interfaces.DeadBody;
+import com.suscipio_solutions.consecro_mud.Items.interfaces.Item;
+import com.suscipio_solutions.consecro_mud.Items.interfaces.Wearable;
+import com.suscipio_solutions.consecro_mud.MOBS.interfaces.MOB;
+import com.suscipio_solutions.consecro_mud.core.CMClass;
+import com.suscipio_solutions.consecro_mud.core.CMLib;
+import com.suscipio_solutions.consecro_mud.core.interfaces.Physical;
+
+
+
+@SuppressWarnings("rawtypes")
+public class Prayer_AnimateDead extends Prayer
+{
+	@Override public String ID() { return "Prayer_AnimateDead"; }
+	private final static String localizedName = CMLib.lang().L("Animate Dead");
+	@Override public String name() { return localizedName; }
+	@Override public int classificationCode(){return Ability.ACODE_PRAYER|Ability.DOMAIN_DEATHLORE;}
+	@Override public int abstractQuality(){ return Ability.QUALITY_INDIFFERENT;}
+	@Override public int enchantQuality(){return Ability.QUALITY_INDIFFERENT;}
+	@Override public long flags(){return Ability.FLAG_UNHOLY;}
+	@Override protected int canTargetCode(){return CAN_ITEMS;}
+
+	@Override
+	public boolean invoke(MOB mob, Vector commands, Physical givenTarget, boolean auto, int asLevel)
+	{
+		final Physical target=getAnyTarget(mob,commands,givenTarget,Wearable.FILTER_UNWORNONLY);
+		if(target==null) return false;
+
+		if(target==mob)
+		{
+			mob.tell(L("@x1 doesn't look dead yet.",target.name(mob)));
+			return false;
+		}
+		if(!(target instanceof DeadBody))
+		{
+			mob.tell(L("You can't animate that."));
+			return false;
+		}
+
+		final DeadBody body=(DeadBody)target;
+		if(body.playerCorpse()||(body.mobName().length()==0)
+		||((body.charStats()!=null)&&(body.charStats().getMyRace()!=null)&&(body.charStats().getMyRace().racialCategory().equalsIgnoreCase("Undead"))))
+		{
+			mob.tell(L("You can't animate that."));
+			return false;
+		}
+		final String realName=body.mobName();
+		String description=body.mobDescription();
+		if(description.trim().length()==0)
+			description="It looks dead.";
+		else
+			description+="\n\rIt also looks dead.";
+
+		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
+			return false;
+
+		final boolean success=proficiencyCheck(mob,0,auto);
+
+		if(success)
+		{
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?"":L("^S<S-NAME> @x1 for dark powers over <T-NAMESELF>.^?",prayWord(mob)));
+			if(mob.location().okMessage(mob,msg))
+			{
+				mob.location().send(mob,msg);
+				final MOB newMOB=CMClass.getMOB("GenUndead");
+				newMOB.setName(L("@x1 zombie",realName));
+				newMOB.setDescription(description);
+				newMOB.setDisplayText("");
+				newMOB.basePhyStats().setLevel(body.phyStats().level()+((super.getX1Level(mob)+super.getXLEVELLevel(mob))/2));
+				newMOB.baseCharStats().setStat(CharStats.STAT_GENDER,body.charStats().getStat(CharStats.STAT_GENDER));
+				newMOB.baseCharStats().setMyRace(CMClass.getRace("Undead"));
+				newMOB.baseCharStats().setBodyPartsFromStringAfterRace(body.charStats().getBodyPartsAsString());
+				final Ability P=CMClass.getAbility("Prop_StatTrainer");
+				if(P!=null)
+				{
+					P.setMiscText("NOTEACH STR=20 INT=10 WIS=10 CON=10 DEX=3 CHA=2");
+					newMOB.addNonUninvokableEffect(P);
+				}
+				newMOB.basePhyStats().setSensesMask(PhyStats.CAN_SEE_DARK);
+				newMOB.recoverCharStats();
+				newMOB.basePhyStats().setAttackAdjustment(CMLib.leveler().getLevelAttack(newMOB));
+				newMOB.basePhyStats().setDamage(CMLib.leveler().getLevelMOBDamage(newMOB));
+				CMLib.factions().setAlignment(newMOB,Faction.Align.EVIL);
+				newMOB.baseState().setHitPoints(15*newMOB.basePhyStats().level());
+				newMOB.baseState().setMovement(30);
+				newMOB.basePhyStats().setArmor(CMLib.leveler().getLevelMOBArmor(newMOB));
+				newMOB.baseState().setMana(0);
+				final Behavior B=CMClass.getBehavior("Aggressive");
+				if(B!=null){ B.setParms("+NAMES \"-"+mob.Name()+"\""); newMOB.addBehavior(B);}
+				newMOB.addNonUninvokableEffect(CMClass.getAbility("Prop_ModExperience"));
+				newMOB.recoverCharStats();
+				newMOB.recoverPhyStats();
+				newMOB.recoverMaxState();
+				newMOB.resetToMaxState();
+				newMOB.text();
+				newMOB.bringToLife(mob.location(),true);
+				CMLib.beanCounter().clearZeroMoney(newMOB,null);
+				newMOB.location().showOthers(newMOB,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> appears!"));
+				int it=0;
+				while(it<newMOB.location().numItems())
+				{
+					final Item item=newMOB.location().getItem(it);
+					if((item!=null)&&(item.container()==body))
+					{
+						final CMMsg msg2=CMClass.getMsg(newMOB,body,item,CMMsg.MSG_GET,null);
+						newMOB.location().send(newMOB,msg2);
+						final CMMsg msg4=CMClass.getMsg(newMOB,item,null,CMMsg.MSG_GET,null);
+						newMOB.location().send(newMOB,msg4);
+						final CMMsg msg3=CMClass.getMsg(newMOB,item,null,CMMsg.MSG_WEAR,null);
+						newMOB.location().send(newMOB,msg3);
+						if(!newMOB.isMine(item))
+							it++;
+						else
+							it=0;
+					}
+					else
+						it++;
+				}
+				body.destroy();
+				newMOB.setStartRoom(null);
+				mob.location().show(newMOB,null,CMMsg.MSG_OK_VISUAL,L("<S-NAME> begin(s) to rise!"));
+				mob.location().recoverRoomStats();
+			}
+		}
+		else
+			return beneficialWordsFizzle(mob,target,L("<S-NAME> @x1 for dark powers, but fail(s) miserably.",prayWord(mob)));
+
+
+		// return whether it worked
+		return success;
+	}
+}

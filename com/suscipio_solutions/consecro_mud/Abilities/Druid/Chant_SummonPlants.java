@@ -1,0 +1,240 @@
+package com.suscipio_solutions.consecro_mud.Abilities.Druid;
+import java.util.Hashtable;
+import java.util.Vector;
+
+import com.suscipio_solutions.consecro_mud.Abilities.interfaces.Ability;
+import com.suscipio_solutions.consecro_mud.Areas.interfaces.Area;
+import com.suscipio_solutions.consecro_mud.Common.interfaces.CMMsg;
+import com.suscipio_solutions.consecro_mud.Items.interfaces.Item;
+import com.suscipio_solutions.consecro_mud.Items.interfaces.RawMaterial;
+import com.suscipio_solutions.consecro_mud.Locales.interfaces.Room;
+import com.suscipio_solutions.consecro_mud.MOBS.interfaces.MOB;
+import com.suscipio_solutions.consecro_mud.core.CMClass;
+import com.suscipio_solutions.consecro_mud.core.CMLib;
+import com.suscipio_solutions.consecro_mud.core.CMProps;
+import com.suscipio_solutions.consecro_mud.core.CMSecurity;
+import com.suscipio_solutions.consecro_mud.core.CMath;
+import com.suscipio_solutions.consecro_mud.core.interfaces.Environmental;
+import com.suscipio_solutions.consecro_mud.core.interfaces.Physical;
+
+
+
+@SuppressWarnings({"unchecked","rawtypes"})
+public class Chant_SummonPlants extends Chant
+{
+	@Override public String ID() { return "Chant_SummonPlants"; }
+	private final static String localizedName = CMLib.lang().L("Summon Plants");
+	@Override public String name() { return localizedName; }
+	@Override public int classificationCode(){return Ability.ACODE_CHANT|Ability.DOMAIN_PLANTGROWTH;}
+	@Override public int abstractQuality(){return Ability.QUALITY_INDIFFERENT;}
+	@Override protected int canAffectCode(){return CAN_ITEMS;}
+	@Override protected int canTargetCode(){return 0;}
+	protected Room PlantsLocation=null;
+	protected Item littlePlants=null;
+	protected static Hashtable plantBonuses=new Hashtable();
+
+	@Override
+	public void unInvoke()
+	{
+		if(PlantsLocation==null)
+			return;
+		if(littlePlants==null)
+			return;
+		if(canBeUninvoked())
+			PlantsLocation.showHappens(CMMsg.MSG_OK_VISUAL,L("@x1 wither@x2 away.",littlePlants.name(),(littlePlants.name().startsWith("s")?"":"s")));
+		super.unInvoke();
+		if(canBeUninvoked())
+		{
+			final Item plants=littlePlants; // protects against uninvoke loops!
+			if(plants!=null)
+			{
+				littlePlants=null;
+				plants.destroy();
+				PlantsLocation.recoverRoomStats();
+				PlantsLocation=null;
+			}
+		}
+	}
+
+	@Override
+	public String text()
+	{
+		if((miscText.length()==0)
+		&&(invoker()!=null))
+			miscText=invoker().Name();
+		return super.text();
+	}
+
+	@Override
+	public void executeMsg(final Environmental myHost, final CMMsg msg)
+	{
+		if((msg.amITarget(littlePlants))
+		&&((msg.targetMinor()==CMMsg.TYP_GET)||(msg.targetMinor()==CMMsg.TYP_PUSH)||(msg.targetMinor()==CMMsg.TYP_PULL)))
+			msg.addTrailerMsg(CMClass.getMsg(msg.source(),littlePlants,null,CMMsg.MSG_OK_VISUAL,CMMsg.MASK_ALWAYS|CMMsg.MSG_DEATH,CMMsg.NO_EFFECT,null));
+	}
+
+	public Item buildPlant(MOB mob, Room room)
+	{
+		final Item newItem=CMClass.getItem("GenItem");
+		newItem.setMaterial(RawMaterial.RESOURCE_GREENS);
+		switch(CMLib.dice().roll(1,5,0))
+		{
+		case 1:
+			newItem.setName(L("some happy flowers"));
+			newItem.setDisplayText(L("some happy flowers are growing here."));
+			newItem.setDescription(L("Happy flowers with little red and yellow blooms."));
+			break;
+		case 2:
+			newItem.setName(L("some happy weeds"));
+			newItem.setDisplayText(L("some happy weeds are growing here."));
+			newItem.setDescription(L("Long stalked little plants with tiny bulbs on top."));
+			break;
+		case 3:
+			newItem.setName(L("a pretty fern"));
+			newItem.setDisplayText(L("a pretty fern is growing here."));
+			newItem.setDescription(L("Like a tiny bush, this dark green plant is lovely."));
+			break;
+		case 4:
+			newItem.setName(L("a patch of sunflowers"));
+			newItem.setDisplayText(L("a patch of sunflowers is growing here."));
+			newItem.setDescription(L("Happy flowers with little yellow blooms."));
+			break;
+		case 5:
+			newItem.setName(L("a patch of bluebonnets"));
+			newItem.setDisplayText(L("a patch of bluebonnets is growing here."));
+			newItem.setDescription(L("Happy flowers with little blue and purple blooms."));
+			break;
+		}
+		final Chant_SummonPlants newChant=new Chant_SummonPlants();
+		newItem.basePhyStats().setLevel(10+(10*newChant.getX1Level(mob)));
+		newItem.basePhyStats().setWeight(1);
+		newItem.setSecretIdentity(mob.Name());
+		newItem.setMiscText(newItem.text());
+		room.addItem(newItem);
+		newItem.setExpirationDate(0);
+		room.showHappens(CMMsg.MSG_OK_ACTION,CMLib.lang().L("Suddenly, @x1 sprout(s) up here.",newItem.name()));
+		newChant.PlantsLocation=room;
+		newChant.littlePlants=newItem;
+		if(CMLib.law().doesOwnThisProperty(mob,room))
+		{
+			newChant.setInvoker(mob);
+			newChant.setMiscText(mob.Name());
+			newItem.addNonUninvokableEffect(newChant);
+		}
+		else
+			newChant.beneficialAffect(mob,newItem,0,(newChant.adjustedLevel(mob,0)*240)+450);
+		room.recoverPhyStats();
+		return newItem;
+	}
+
+	public Item buildMyThing(MOB mob, Room room)
+	{
+		final Area A=room.getArea();
+		final boolean bonusWorthy=(Druid_MyPlants.myPlant(room,mob,0)==null);
+		final Vector V=Druid_MyPlants.myAreaPlantRooms(mob,room.getArea());
+		int pct=0;
+		if(A.getAreaIStats()[Area.Stats.VISITABLE_ROOMS.ordinal()]>10)
+			pct=(int)Math.round(100.0*CMath.div(V.size(),A.getAreaIStats()[Area.Stats.VISITABLE_ROOMS.ordinal()]));
+		final Item I=buildMyPlant(mob,room);
+		if((I!=null)
+		&&((mob.charStats().getCurrentClass().baseClass().equalsIgnoreCase("Druid"))||(CMSecurity.isASysOp(mob))))
+		{
+			if(!CMLib.law().isACity(A))
+			{
+				if(pct>0)
+				{
+					final int newPct=(int)Math.round(100.0*CMath.div(V.size(),A.getAreaIStats()[Area.Stats.VISITABLE_ROOMS.ordinal()]));
+					if((newPct>=50)&&(A.fetchEffect("Chant_DruidicConnection")==null))
+					{
+						final Ability A2=CMClass.getAbility("Chant_DruidicConnection");
+						if(A2!=null) A2.invoke(mob,A,true,0);
+					}
+				}
+			}
+			else
+			if((bonusWorthy)&&(!mob.isMonster()))
+			{
+				long[] num=(long[])plantBonuses.get(mob.Name()+"/"+room.getArea().Name());
+				if((num==null)||(System.currentTimeMillis()-num[1]>(room.getArea().getTimeObj().getDaysInMonth()*room.getArea().getTimeObj().getHoursInDay()*CMProps.getMillisPerMudHour())))
+				{
+					num=new long[2];
+					plantBonuses.remove(mob.Name()+"/"+room.getArea().Name());
+					plantBonuses.put(mob.Name()+"/"+room.getArea().Name(),num);
+					num[1]=System.currentTimeMillis();
+				}
+				if(V.size()>=num[0])
+				{
+					num[0]++;
+					if(num[0]<19)
+					{
+						mob.tell(L("You have made this city greener."));
+						CMLib.leveler().postExperience(mob,null,null,(int)num[0],false);
+					}
+				}
+			}
+		}
+		return I;
+	}
+
+	protected Item buildMyPlant(MOB mob, Room room){ return buildPlant(mob,room);}
+
+	public boolean rightPlace(MOB mob,boolean auto)
+	{
+		if((!auto)&&(mob.location().domainType()&Room.INDOORS)>0)
+		{
+			mob.tell(L("You must be outdoors for this chant to work."));
+			return false;
+		}
+
+		if((mob.location().domainType()==Room.DOMAIN_OUTDOORS_CITY)
+		   ||(mob.location().domainType()==Room.DOMAIN_OUTDOORS_SPACEPORT)
+		   ||(mob.location().domainType()==Room.DOMAIN_OUTDOORS_UNDERWATER)
+		   ||(mob.location().domainType()==Room.DOMAIN_OUTDOORS_AIR)
+		   ||(mob.location().domainType()==Room.DOMAIN_OUTDOORS_WATERSURFACE))
+		{
+			mob.tell(L("This magic will not work here."));
+			return false;
+		}
+		return true;
+	}
+
+	@Override
+	public int castingQuality(MOB mob, Physical target)
+	{
+		if(mob!=null)
+		{
+			if(!rightPlace(mob,false))
+				return Ability.QUALITY_INDIFFERENT;
+			final Item myPlant=Druid_MyPlants.myPlant(mob.location(),mob,0);
+			if(myPlant==null)
+				return super.castingQuality(mob, target,Ability.QUALITY_BENEFICIAL_SELF);
+		}
+		return super.castingQuality(mob,target);
+	}
+
+	@Override
+	public boolean invoke(MOB mob, Vector commands, Physical givenTarget, boolean auto, int asLevel)
+	{
+		if(!rightPlace(mob,auto)) return false;
+
+		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
+			return false;
+
+		// now see if it worked
+		final boolean success=proficiencyCheck(mob,0,auto);
+		if(success)
+		{
+			final CMMsg msg=CMClass.getMsg(mob,null,this,verbalCastCode(mob,null,auto),auto?"":L("^S<S-NAME> chant(s) to the ground.^?"));
+			if(mob.location().okMessage(mob,msg))
+			{
+				mob.location().send(mob,msg);
+				buildMyThing(mob,mob.location());
+			}
+		}
+		else
+			return beneficialWordsFizzle(mob,null,L("<S-NAME> chant(s) to the ground, but nothing happens."));
+
+		// return whether it worked
+		return success;
+	}
+}

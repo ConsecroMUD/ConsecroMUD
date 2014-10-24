@@ -1,0 +1,203 @@
+package com.suscipio_solutions.consecro_mud.Abilities.Prayers;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Vector;
+
+import com.suscipio_solutions.consecro_mud.Abilities.interfaces.Ability;
+import com.suscipio_solutions.consecro_mud.Common.interfaces.CMMsg;
+import com.suscipio_solutions.consecro_mud.Exits.interfaces.Exit;
+import com.suscipio_solutions.consecro_mud.Items.interfaces.Container;
+import com.suscipio_solutions.consecro_mud.Items.interfaces.Item;
+import com.suscipio_solutions.consecro_mud.Locales.interfaces.Room;
+import com.suscipio_solutions.consecro_mud.MOBS.interfaces.MOB;
+import com.suscipio_solutions.consecro_mud.core.CMClass;
+import com.suscipio_solutions.consecro_mud.core.CMLib;
+import com.suscipio_solutions.consecro_mud.core.Directions;
+import com.suscipio_solutions.consecro_mud.core.interfaces.Environmental;
+import com.suscipio_solutions.consecro_mud.core.interfaces.Physical;
+import com.suscipio_solutions.consecro_mud.core.interfaces.ShopKeeper;
+import com.suscipio_solutions.consecro_mud.core.interfaces.Tickable;
+
+
+
+@SuppressWarnings("rawtypes")
+public class Prayer_SenseTraps extends Prayer
+{
+	@Override public String ID() { return "Prayer_SenseTraps"; }
+	private final static String localizedName = CMLib.lang().L("Sense Traps");
+	@Override public String name() { return localizedName; }
+	private final static String localizedStaticDisplay = CMLib.lang().L("(Sensing Traps)");
+	@Override public String displayText() { return localizedStaticDisplay; }
+	@Override public int classificationCode(){return Ability.ACODE_PRAYER|Ability.DOMAIN_COMMUNING;}
+	@Override public int abstractQuality(){ return Ability.QUALITY_OK_SELF;}
+	@Override public int enchantQuality(){return Ability.QUALITY_BENEFICIAL_SELF;}
+	@Override protected int canAffectCode(){return CAN_MOBS;}
+	@Override public long flags(){return Ability.FLAG_HOLY|Ability.FLAG_UNHOLY;}
+	Room lastRoom=null;
+
+	@Override
+	public void unInvoke()
+	{
+		if(!(affected instanceof MOB))
+			return;
+		final MOB mob=(MOB)affected;
+		if(canBeUninvoked())
+			lastRoom=null;
+		super.unInvoke();
+		if(canBeUninvoked())
+			mob.tell(L("Your senses are no longer sensitive to traps."));
+	}
+	public String trapCheck(Physical P)
+	{
+		if(P!=null)
+		if(CMLib.utensils().fetchMyTrap(P)!=null)
+			return P.name()+" is trapped.\n\r";
+		return "";
+	}
+
+	public String trapHere(MOB mob, Physical P)
+	{
+		final StringBuffer msg=new StringBuffer("");
+		if(P==null) return msg.toString();
+		if((P instanceof Room)&&(CMLib.flags().canBeSeenBy(P,mob)))
+		{
+			msg.append(trapCheck(P));
+			final Room R=(Room)P;
+			for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
+			{
+				if(R.getExitInDir(d)==P)
+				{
+					final Exit E2=R.getReverseExit(d);
+					msg.append(trapHere(mob,P));
+					msg.append(trapHere(mob,E2));
+					break;
+				}
+			}
+			for(int i=0;i<R.numItems();i++)
+			{
+				final Item I=R.getItem(i);
+				if((I!=null)&&(I.container()==null))
+					msg.append(trapHere(mob,I));
+			}
+			for(int m=0;m<R.numInhabitants();m++)
+			{
+				final MOB M=R.fetchInhabitant(m);
+				if((M!=null)&&(M!=mob))
+					msg.append(trapHere(mob,M));
+			}
+		}
+		else
+		if((P instanceof Container)&&(CMLib.flags().canBeSeenBy(P,mob)))
+		{
+			final Container C=(Container)P;
+			final List<Item> V=C.getContents();
+			for(int v=0;v<V.size();v++)
+				if(trapCheck(V.get(v)).length()>0)
+					msg.append(L("@x1 contains something trapped.\n",C.name()));
+		}
+		else
+		if((P instanceof Item)&&(CMLib.flags().canBeSeenBy(P,mob)))
+			msg.append(trapCheck(P));
+		else
+		if((P instanceof Exit)&&(CMLib.flags().canBeSeenBy(P,mob)))
+			msg.append(trapCheck(P));
+		else
+		if((P instanceof MOB)&&(CMLib.flags().canBeSeenBy(P,mob)))
+		{
+			for(int i=0;i<((MOB)P).numItems();i++)
+			{
+				final Item I=((MOB)P).getItem(i);
+				if(trapCheck(I).length()>0)
+					return P.name()+" is carrying something trapped.\n";
+			}
+			final ShopKeeper SK=CMLib.coffeeShops().getShopKeeper(P);
+			if(SK!=null)
+			{
+				for(final Iterator<Environmental> i=SK.getShop().getStoreInventory();i.hasNext();)
+				{
+					final Environmental E2=i.next();
+					if(E2 instanceof Item)
+						if(trapCheck((Item)E2).length()>0)
+							return P.name()+" has something trapped in stock.\n";
+				}
+			}
+		}
+		return msg.toString();
+	}
+
+	public void messageTo(MOB mob)
+	{
+		final String here=trapHere(mob,mob.location());
+		if(here.length()>0)
+			mob.tell(here);
+		else
+		{
+			String last="";
+			String dirs="";
+			for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
+			{
+				final Room R=mob.location().getRoomInDir(d);
+				final Exit E=mob.location().getExitInDir(d);
+				if((R!=null)&&(E!=null)&&(trapHere(mob,R).length()>0))
+				{
+					if(last.length()>0)
+						dirs+=", "+last;
+					last=Directions.getFromDirectionName(d);
+				}
+			}
+			if((dirs.length()==0)&&(last.length()>0))
+				mob.tell(L("You sense a trap to @x1.",last));
+			else
+			if((dirs.length()>2)&&(last.length()>0))
+				mob.tell(L("You sense a trap to @x1, and @x2.",dirs.substring(2),last));
+		}
+	}
+
+	@Override
+	public boolean tick(Tickable ticking, int tickID)
+	{
+		if(!super.tick(ticking,tickID))
+			return false;
+		if((tickID==Tickable.TICKID_MOB)
+		   &&(affected!=null)
+		   &&(affected instanceof MOB)
+		   &&(((MOB)affected).location()!=null)
+		   &&((lastRoom==null)||(((MOB)affected).location()!=lastRoom)))
+		{
+			lastRoom=((MOB)affected).location();
+			messageTo((MOB)affected);
+		}
+		return true;
+	}
+
+	@Override
+	public boolean invoke(MOB mob, Vector commands, Physical givenTarget, boolean auto, int asLevel)
+	{
+		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
+			return false;
+
+		MOB target=mob;
+		if((auto)&&(givenTarget!=null)&&(givenTarget instanceof MOB))
+			target=(MOB)givenTarget;
+		if(target.fetchEffect(this.ID())!=null)
+		{
+			mob.tell(target,null,null,L("<S-NAME> <S-IS-ARE> already sensing traps."));
+			return false;
+		}
+		final boolean success=proficiencyCheck(mob,0,auto);
+
+		if(success)
+		{
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?L("<T-NAME> gain(s) trap sensitivities!"):L("^S<S-NAME> @x1, and gain(s) sensitivity to traps!^?",prayWord(mob)));
+			if(mob.location().okMessage(mob,msg))
+			{
+				mob.location().send(mob,msg);
+				beneficialAffect(mob,target,asLevel,0);
+			}
+		}
+		else
+			beneficialVisualFizzle(mob,null,L("<S-NAME> @x1, but nothing happens.",prayWord(mob)));
+
+		return success;
+	}
+}

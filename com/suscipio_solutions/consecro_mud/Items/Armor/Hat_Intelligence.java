@@ -1,0 +1,39 @@
+package com.suscipio_solutions.consecro_mud.Items.Armor;
+import com.suscipio_solutions.consecro_mud.Common.interfaces.CharStats;
+import com.suscipio_solutions.consecro_mud.Common.interfaces.PhyStats;
+import com.suscipio_solutions.consecro_mud.Items.interfaces.RawMaterial;
+import com.suscipio_solutions.consecro_mud.Items.interfaces.Wearable;
+import com.suscipio_solutions.consecro_mud.MOBS.interfaces.MOB;
+
+
+
+public class Hat_Intelligence extends StdArmor
+{
+	@Override public String ID(){	return "Hat_Intelligence";}
+	public Hat_Intelligence()
+	{
+		super();
+
+		setName("a feathered cap");
+		setDisplayText("a feathered cap.");
+		setDescription("It looks like a regular cap with long feather.");
+		secretIdentity="Hat of Intelligence (Increases IQ)";
+		properWornBitmap=Wearable.WORN_HEAD;
+		wornLogicalAnd=false;
+		basePhyStats().setArmor(2);
+		basePhyStats().setWeight(1);
+		basePhyStats().setAbility(0);
+		baseGoldValue=6000;
+		basePhyStats().setDisposition(basePhyStats().disposition()|PhyStats.IS_BONUS);
+		recoverPhyStats();
+		material=RawMaterial.RESOURCE_COTTON;
+	}
+
+	@Override
+	public void affectCharStats(MOB affected, CharStats affectableStats)
+	{
+		super.affectCharStats(affected,affectableStats);
+		affectableStats.setStat(CharStats.STAT_INTELLIGENCE,affectableStats.getStat(CharStats.STAT_INTELLIGENCE) + 4);
+	}
+
+}

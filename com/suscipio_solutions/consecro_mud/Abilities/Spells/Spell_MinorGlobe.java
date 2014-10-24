@@ -1,0 +1,98 @@
+package com.suscipio_solutions.consecro_mud.Abilities.Spells;
+import java.util.Vector;
+
+import com.suscipio_solutions.consecro_mud.Abilities.interfaces.Ability;
+import com.suscipio_solutions.consecro_mud.Common.interfaces.CMMsg;
+import com.suscipio_solutions.consecro_mud.MOBS.interfaces.MOB;
+import com.suscipio_solutions.consecro_mud.core.CMClass;
+import com.suscipio_solutions.consecro_mud.core.CMLib;
+import com.suscipio_solutions.consecro_mud.core.CMath;
+import com.suscipio_solutions.consecro_mud.core.interfaces.Environmental;
+import com.suscipio_solutions.consecro_mud.core.interfaces.Physical;
+
+
+@SuppressWarnings("rawtypes")
+public class Spell_MinorGlobe extends Spell
+{
+	@Override public String ID() { return "Spell_MinorGlobe"; }
+	private final static String localizedName = CMLib.lang().L("Globe");
+	@Override public String name() { return localizedName; }
+	private final static String localizedStaticDisplay = CMLib.lang().L("(Invulnerability Globe)");
+	@Override public String displayText() { return localizedStaticDisplay; }
+	@Override public int abstractQuality(){ return Ability.QUALITY_BENEFICIAL_OTHERS;}
+	@Override protected int canAffectCode(){return CAN_MOBS;}
+	@Override public int classificationCode(){ return Ability.ACODE_SPELL|Ability.DOMAIN_ABJURATION;}
+
+	int amountAbsorbed=0;
+
+	@Override
+	public void unInvoke()
+	{
+		// undo the affects of this spell
+		if(!(affected instanceof MOB))
+			return;
+		final MOB mob=(MOB)affected;
+		if(canBeUninvoked())
+			if((mob.location()!=null)&&(!mob.amDead()))
+				mob.location().show(mob,null,CMMsg.MSG_OK_VISUAL,L("<S-YOUPOSS> minor anti-magic globe fades."));
+
+		super.unInvoke();
+
+	}
+
+
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
+	{
+		if(!(affected instanceof MOB))
+			return true;
+
+		final MOB mob=(MOB)affected;
+		if((msg.amITarget(mob))
+		&&(CMath.bset(msg.targetMajor(),CMMsg.MASK_MALICIOUS))
+		&&(msg.targetMinor()==CMMsg.TYP_CAST_SPELL)
+		&&(msg.tool()!=null)
+		&&(msg.tool() instanceof Ability)
+		&&(((((Ability)msg.tool()).classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_SPELL)
+			||((((Ability)msg.tool()).classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_CHANT)
+			||((((Ability)msg.tool()).classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_PRAYER))
+		&&(!mob.amDead())
+		&&(CMLib.ableMapper().lowestQualifyingLevel(msg.tool().ID())<=8)
+		&&((mob.fetchAbility(ID())==null)||proficiencyCheck(null,0,false)))
+		{
+			amountAbsorbed+=CMLib.ableMapper().lowestQualifyingLevel(msg.tool().ID());
+			mob.location().show(mob,msg.source(),null,CMMsg.MSG_OK_VISUAL,L("The absorbing globe around <S-NAME> absorbs the @x1 from <T-NAME>.",msg.tool().name()));
+			return false;
+		}
+		if((invoker!=null)&&(amountAbsorbed>((invoker.phyStats().level()+super.getXLEVELLevel(invoker))*2)))
+			unInvoke();
+		return true;
+	}
+
+
+	@Override
+	public boolean invoke(MOB mob, Vector commands, Physical givenTarget, boolean auto, int asLevel)
+	{
+		final MOB target=getTarget(mob,commands,givenTarget);
+		if(target==null) return false;
+
+		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
+			return false;
+
+		final boolean success=proficiencyCheck(mob,0,auto);
+		if(success)
+		{
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),L(auto?"An anti-magic field envelopes <T-NAME>!":"^S<S-NAME> invoke(s) an anti-magic globe of protection around <T-NAMESELF>.^?"));
+			if(mob.location().okMessage(mob,msg))
+			{
+				amountAbsorbed=0;
+				mob.location().send(mob,msg);
+				beneficialAffect(mob,target,asLevel,0);
+			}
+		}
+		else
+			beneficialWordsFizzle(mob,target,L("<S-NAME> attempt(s) to invoke an anti-magic globe, but fail(s)."));
+
+		return success;
+	}
+}

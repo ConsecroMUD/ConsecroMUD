@@ -1,0 +1,160 @@
+package com.suscipio_solutions.consecro_mud.Abilities.Prayers;
+import java.util.Vector;
+
+import com.suscipio_solutions.consecro_mud.Abilities.interfaces.Ability;
+import com.suscipio_solutions.consecro_mud.Common.interfaces.CMMsg;
+import com.suscipio_solutions.consecro_mud.Common.interfaces.Climate;
+import com.suscipio_solutions.consecro_mud.MOBS.interfaces.MOB;
+import com.suscipio_solutions.consecro_mud.core.CMClass;
+import com.suscipio_solutions.consecro_mud.core.CMLib;
+import com.suscipio_solutions.consecro_mud.core.interfaces.Physical;
+
+
+
+@SuppressWarnings("rawtypes")
+public class Prayer_Weather extends Prayer
+{
+	@Override public String ID() { return "Prayer_Weather"; }
+	private final static String localizedName = CMLib.lang().L("Change Weather");
+	@Override public String name() { return localizedName; }
+	@Override protected int canAffectCode(){return 0;}
+	@Override public int classificationCode(){return Ability.ACODE_PRAYER|Ability.DOMAIN_CREATION;}
+	@Override public long flags(){return Ability.FLAG_HOLY|Ability.FLAG_UNHOLY;}
+	@Override protected int canTargetCode(){return 0;}
+	@Override public int abstractQuality(){ return Ability.QUALITY_INDIFFERENT;}
+
+	@Override
+	public boolean invoke(MOB mob, Vector commands, Physical givenTarget, boolean auto, int asLevel)
+	{
+		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
+			return false;
+
+		int size=mob.location().getArea().numberOfProperIDedRooms();
+		size=size-((mob.phyStats().level()+(2*super.getXLEVELLevel(mob)))*20);
+		if(size<0) size=0;
+		final boolean success=proficiencyCheck(mob,-size,auto);
+		if(success)
+		{
+			final CMMsg msg=CMClass.getMsg(mob,null,this,verbalCastCode(mob,null,auto),auto?L("The sky changes color!"):L("^S<S-NAME> @x1 for a change in weather!^?",prayWord(mob)));
+			if(mob.location().okMessage(mob,msg))
+			{
+				final int switcher=CMLib.dice().roll(1,3,0);
+				mob.location().send(mob,msg);
+				switch(mob.location().getArea().getClimateObj().weatherType(mob.location()))
+				{
+				case Climate.WEATHER_BLIZZARD:
+					if(switcher==1)
+						mob.location().getArea().getClimateObj().setNextWeatherType(Climate.WEATHER_BLIZZARD);
+					else if(switcher==2)
+						mob.location().getArea().getClimateObj().setNextWeatherType(Climate.WEATHER_BLIZZARD);
+					else
+					mob.location().getArea().getClimateObj().setNextWeatherType(Climate.WEATHER_SNOW);
+					break;
+				case Climate.WEATHER_CLEAR:
+					if(switcher==1)
+						mob.location().getArea().getClimateObj().setNextWeatherType(Climate.WEATHER_WINDY);
+					else if(switcher==2)
+						mob.location().getArea().getClimateObj().setNextWeatherType(Climate.WEATHER_RAIN);
+					else
+					mob.location().getArea().getClimateObj().setNextWeatherType(Climate.WEATHER_CLOUDY);
+					break;
+				case Climate.WEATHER_CLOUDY:
+					if(switcher==1)
+						mob.location().getArea().getClimateObj().setNextWeatherType(Climate.WEATHER_WINDY);
+					else if(switcher==2)
+						mob.location().getArea().getClimateObj().setNextWeatherType(Climate.WEATHER_RAIN);
+					else
+					mob.location().getArea().getClimateObj().setNextWeatherType(Climate.WEATHER_CLEAR);
+					break;
+				case Climate.WEATHER_DROUGHT:
+					if(switcher==1)
+						mob.location().getArea().getClimateObj().setNextWeatherType(Climate.WEATHER_DUSTSTORM);
+					else if(switcher==2)
+						mob.location().getArea().getClimateObj().setNextWeatherType(Climate.WEATHER_HEAT_WAVE);
+					else
+					mob.location().getArea().getClimateObj().setNextWeatherType(Climate.WEATHER_CLEAR);
+					break;
+				case Climate.WEATHER_DUSTSTORM:
+					if(switcher==1)
+						mob.location().getArea().getClimateObj().setNextWeatherType(Climate.WEATHER_DUSTSTORM);
+					else if(switcher==2)
+						mob.location().getArea().getClimateObj().setNextWeatherType(Climate.WEATHER_CLOUDY);
+					else
+					mob.location().getArea().getClimateObj().setNextWeatherType(Climate.WEATHER_CLEAR);
+					break;
+				case Climate.WEATHER_HAIL:
+					if(switcher==1)
+						mob.location().getArea().getClimateObj().setNextWeatherType(Climate.WEATHER_HAIL);
+					else if(switcher==2)
+						mob.location().getArea().getClimateObj().setNextWeatherType(Climate.WEATHER_SLEET);
+					else
+					mob.location().getArea().getClimateObj().setNextWeatherType(Climate.WEATHER_CLOUDY);
+					break;
+				case Climate.WEATHER_HEAT_WAVE:
+					if(switcher==1)
+						mob.location().getArea().getClimateObj().setNextWeatherType(Climate.WEATHER_DUSTSTORM);
+					else if(switcher==2)
+						mob.location().getArea().getClimateObj().setNextWeatherType(Climate.WEATHER_RAIN);
+					else
+					mob.location().getArea().getClimateObj().setNextWeatherType(Climate.WEATHER_CLEAR);
+					break;
+				case Climate.WEATHER_RAIN:
+					if(switcher==1)
+						mob.location().getArea().getClimateObj().setNextWeatherType(Climate.WEATHER_THUNDERSTORM);
+					else if(switcher==2)
+						mob.location().getArea().getClimateObj().setNextWeatherType(Climate.WEATHER_THUNDERSTORM);
+					else
+					mob.location().getArea().getClimateObj().setNextWeatherType(Climate.WEATHER_CLOUDY);
+					break;
+				case Climate.WEATHER_SLEET:
+					if(switcher==1)
+						mob.location().getArea().getClimateObj().setNextWeatherType(Climate.WEATHER_SLEET);
+					else if(switcher==2)
+						mob.location().getArea().getClimateObj().setNextWeatherType(Climate.WEATHER_SLEET);
+					else
+					mob.location().getArea().getClimateObj().setNextWeatherType(Climate.WEATHER_CLOUDY);
+					break;
+				case Climate.WEATHER_SNOW:
+					if(switcher==1)
+						mob.location().getArea().getClimateObj().setNextWeatherType(Climate.WEATHER_BLIZZARD);
+					else if(switcher==2)
+						mob.location().getArea().getClimateObj().setNextWeatherType(Climate.WEATHER_SLEET);
+					else
+					mob.location().getArea().getClimateObj().setNextWeatherType(Climate.WEATHER_CLOUDY);
+					break;
+				case Climate.WEATHER_THUNDERSTORM:
+					if(switcher==1)
+						mob.location().getArea().getClimateObj().setNextWeatherType(Climate.WEATHER_THUNDERSTORM);
+					else if(switcher==2)
+						mob.location().getArea().getClimateObj().setNextWeatherType(Climate.WEATHER_THUNDERSTORM);
+					else
+					mob.location().getArea().getClimateObj().setNextWeatherType(Climate.WEATHER_RAIN);
+					break;
+				case Climate.WEATHER_WINDY:
+					if(switcher==1)
+						mob.location().getArea().getClimateObj().setNextWeatherType(Climate.WEATHER_WINDY);
+					else if(switcher==2)
+						mob.location().getArea().getClimateObj().setNextWeatherType(Climate.WEATHER_THUNDERSTORM);
+					else
+					mob.location().getArea().getClimateObj().setNextWeatherType(Climate.WEATHER_CLEAR);
+					break;
+				case Climate.WEATHER_WINTER_COLD:
+					if(switcher==1)
+						mob.location().getArea().getClimateObj().setNextWeatherType(Climate.WEATHER_WINDY);
+					else if(switcher==2)
+						mob.location().getArea().getClimateObj().setNextWeatherType(Climate.WEATHER_SNOW);
+					else
+					mob.location().getArea().getClimateObj().setNextWeatherType(Climate.WEATHER_CLEAR);
+					break;
+				default:
+					break;
+				}
+				mob.location().getArea().getClimateObj().forceWeatherTick(mob.location().getArea());
+			}
+		}
+		else
+			beneficialVisualFizzle(mob,null,L("<S-NAME> @x1, but nothing happens.",prayWord(mob)));
+
+		return success;
+	}
+}

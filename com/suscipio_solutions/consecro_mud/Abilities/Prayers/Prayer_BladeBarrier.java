@@ -1,0 +1,129 @@
+package com.suscipio_solutions.consecro_mud.Abilities.Prayers;
+import java.util.Vector;
+
+import com.suscipio_solutions.consecro_mud.Abilities.interfaces.Ability;
+import com.suscipio_solutions.consecro_mud.Common.interfaces.CMMsg;
+import com.suscipio_solutions.consecro_mud.Common.interfaces.CharStats;
+import com.suscipio_solutions.consecro_mud.Common.interfaces.PhyStats;
+import com.suscipio_solutions.consecro_mud.Items.interfaces.Weapon;
+import com.suscipio_solutions.consecro_mud.MOBS.interfaces.MOB;
+import com.suscipio_solutions.consecro_mud.core.CMClass;
+import com.suscipio_solutions.consecro_mud.core.CMLib;
+import com.suscipio_solutions.consecro_mud.core.interfaces.Environmental;
+import com.suscipio_solutions.consecro_mud.core.interfaces.Physical;
+
+
+
+@SuppressWarnings("rawtypes")
+public class Prayer_BladeBarrier extends Prayer
+{
+	@Override public String ID() { return "Prayer_BladeBarrier"; }
+	private final static String localizedName = CMLib.lang().L("Blade Barrier");
+	@Override public String name() { return localizedName; }
+	private final static String localizedStaticDisplay = CMLib.lang().L("(Blade Barrier)");
+	@Override public String displayText() { return localizedStaticDisplay; }
+	@Override protected int canAffectCode(){return CAN_MOBS;}
+	@Override protected int canTargetCode(){return CAN_MOBS;}
+	@Override public int classificationCode(){return Ability.ACODE_PRAYER|Ability.DOMAIN_CREATION;}
+	@Override public int abstractQuality(){ return Ability.QUALITY_BENEFICIAL_SELF;}
+	@Override public long flags(){return Ability.FLAG_HOLY;}
+	protected long oncePerTickTime=0;
+
+	protected String startStr() { return "A barrier of blades begin to spin around <T-NAME>!^?"; }
+
+	protected void doDamage(MOB srcM, MOB targetM, int damage)
+	{
+		CMLib.combat().postDamage(srcM, targetM,this,damage,CMMsg.MASK_MALICIOUS|CMMsg.MASK_ALWAYS|CMMsg.TYP_CAST_SPELL,Weapon.TYPE_SLASHING,"The blade barrier around <S-NAME> slices and <DAMAGE> <T-NAME>.");
+	}
+
+	@Override
+	public void unInvoke()
+	{
+		// undo the affects of this spell
+		if(!(affected instanceof MOB))
+			return;
+		final MOB mob=(MOB)affected;
+
+		super.unInvoke();
+
+		if(canBeUninvoked())
+			if((mob.location()!=null)&&(!mob.amDead()))
+				mob.location().show(mob,null,CMMsg.MSG_OK_VISUAL,L("<S-YOUPOSS> @x1 disappears.",name().toLowerCase()));
+	}
+
+	@Override
+	public void executeMsg(final Environmental myHost, final CMMsg msg)
+	{
+		super.executeMsg(myHost,msg);
+		if(!(affected instanceof MOB))
+			return;
+		if((msg.target()==affected)&&(!msg.amISource((MOB)affected)))
+		{
+			if((CMLib.dice().rollPercentage()>60+msg.source().charStats().getStat(CharStats.STAT_DEXTERITY))
+			&&(msg.source().rangeToTarget()==0)
+			&&(oncePerTickTime!=((MOB)affected).lastTickedDateTime())
+			&&((msg.targetMajor(CMMsg.MASK_HANDS))
+			   ||(msg.targetMajor(CMMsg.MASK_MOVE))))
+			{
+				final MOB meM=(MOB)msg.target();
+				final int damage = CMLib.dice().roll(1,(int)Math.round(adjustedLevel(meM,0)/5.0),1);
+				final StringBuffer hitWord=new StringBuffer(CMLib.combat().standardHitWord(-1,damage));
+				if(hitWord.charAt(hitWord.length()-1)==')')
+					hitWord.deleteCharAt(hitWord.length()-1);
+				if(hitWord.charAt(hitWord.length()-2)=='(')
+					hitWord.deleteCharAt(hitWord.length()-2);
+				if(hitWord.charAt(hitWord.length()-3)=='(')
+					hitWord.deleteCharAt(hitWord.length()-3);
+				this.doDamage(meM, msg.source(), damage);
+				oncePerTickTime=((MOB)msg.target()).lastTickedDateTime();
+			}
+		}
+		return;
+	}
+
+	@Override
+	public void affectPhyStats(Physical affected, PhyStats affectableStats)
+	{
+		super.affectPhyStats(affected,affectableStats);
+		affectableStats.setArmor(affectableStats.armor()-1 - (adjustedLevel(invoker(),0)/10));
+	}
+
+	@Override
+	public boolean invoke(MOB mob, Vector commands, Physical givenTarget, boolean auto, int asLevel)
+	{
+		MOB target=mob;
+		if((auto)&&(givenTarget!=null)&&(givenTarget instanceof MOB))
+			target=(MOB)givenTarget;
+
+		if(target.fetchEffect(ID())!=null)
+		{
+			mob.tell(target,null,null,L("<S-NAME> already <S-HAS-HAVE> @x1.",name().toLowerCase()));
+			return false;
+		}
+
+		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
+			return false;
+
+		final boolean success=proficiencyCheck(mob,0,auto);
+
+		if(success)
+		{
+			// it worked, so build a copy of this ability,
+			// and add it to the affects list of the
+			// affected MOB.  Then tell everyone else
+			// what happened.
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),L(auto?"":"^S<S-NAME> "+prayWord(mob)+" for divine protection!  ")+startStr());
+			if(mob.location().okMessage(mob,msg))
+			{
+				mob.location().send(mob,msg);
+				beneficialAffect(mob,target,asLevel,0);
+			}
+		}
+		else
+			return beneficialWordsFizzle(mob,target,L("<S-NAME> @x1 for divine protection, but nothing happens.",prayWord(mob)));
+
+
+		// return whether it worked
+		return success;
+	}
+}

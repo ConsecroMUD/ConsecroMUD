@@ -1,0 +1,10 @@
+\n\r
+#====================================================================#
+|                       -+-- EMAIL SETUP --+-                        |
+#====================================================================#
+| If you enable autoforwarding, then any email sent to your          |
+| charactername@mud.consecromud.com by players will be forwarded     |
+| to your real email address automatically. Giving a real email      |
+| address also allows you to retrieve your password if you forget    |
+| it. Your real address is always kept secret and spam free.         |
+#====================================================================#

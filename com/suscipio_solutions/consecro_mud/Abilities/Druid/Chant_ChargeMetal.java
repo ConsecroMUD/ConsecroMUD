@@ -1,0 +1,193 @@
+package com.suscipio_solutions.consecro_mud.Abilities.Druid;
+import java.lang.ref.WeakReference;
+import java.util.List;
+import java.util.Vector;
+
+import com.suscipio_solutions.consecro_mud.Abilities.interfaces.Ability;
+import com.suscipio_solutions.consecro_mud.Common.interfaces.CMMsg;
+import com.suscipio_solutions.consecro_mud.Items.interfaces.Item;
+import com.suscipio_solutions.consecro_mud.Items.interfaces.Wearable;
+import com.suscipio_solutions.consecro_mud.MOBS.interfaces.MOB;
+import com.suscipio_solutions.consecro_mud.core.CMClass;
+import com.suscipio_solutions.consecro_mud.core.CMLib;
+import com.suscipio_solutions.consecro_mud.core.interfaces.CMObject;
+import com.suscipio_solutions.consecro_mud.core.interfaces.Environmental;
+import com.suscipio_solutions.consecro_mud.core.interfaces.Physical;
+
+
+
+@SuppressWarnings("rawtypes")
+public class Chant_ChargeMetal extends Chant
+{
+	@Override public String ID() { return "Chant_ChargeMetal"; }
+	private final static String localizedName = CMLib.lang().L("Charge Metal");
+	@Override public String name() { return localizedName; }
+	private final static String localizedStaticDisplay = CMLib.lang().L("(Charged)");
+	@Override public String displayText() { return localizedStaticDisplay; }
+	@Override public int classificationCode(){return Ability.ACODE_CHANT|Ability.DOMAIN_ENDURING;}
+	@Override public int abstractQuality(){return Ability.QUALITY_MALICIOUS;}
+	@Override protected int canAffectCode(){return CAN_ITEMS;}
+	@Override protected int canTargetCode(){return CAN_ITEMS|CAN_MOBS;}
+	private WeakReference<CMMsg> lastMsg=null;
+
+	protected List<Item> affectedItems=new Vector<Item>();
+
+	@Override
+	public void setMiscText(String newText)
+	{
+		super.setMiscText(newText);
+		affectedItems=new Vector<Item>();
+	}
+
+	@Override
+	public CMObject copyOf()
+	{
+		final Chant_ChargeMetal obj=(Chant_ChargeMetal)super.copyOf();
+		obj.affectedItems=new Vector<Item>();
+		obj.affectedItems.addAll(affectedItems);
+		return obj;
+	}
+
+	public Item wieldingMetal(MOB mob)
+	{
+		for(int i=0;i<mob.numItems();i++)
+		{
+			final Item item=mob.getItem(i);
+			if((item!=null)
+			&&(!item.amWearingAt(Wearable.IN_INVENTORY))
+			&&(CMLib.flags().isMetal(item))
+			&&(item.container()==null)
+			&&(!mob.amDead()))
+				return item;
+		}
+		return null;
+	}
+
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
+	{
+		if(!super.okMessage(myHost,msg))
+			return false;
+		if(affected==null) return true;
+		if(!(affected instanceof Item)) return true;
+
+		final Item I=(Item)affected;
+		if((I.owner()==null)
+		||(!(I.owner() instanceof MOB))
+		||(I.amWearingAt(Wearable.IN_INVENTORY)))
+			return true;
+
+		final MOB mob=(MOB)I.owner();
+		if((!msg.amITarget(mob))
+		&&((msg.targetMinor()==CMMsg.TYP_ELECTRIC)
+			||((msg.sourceMinor()==CMMsg.TYP_ELECTRIC)&&(msg.targetMinor()==CMMsg.TYP_DAMAGE)))
+		&&((lastMsg==null)||(lastMsg.get()!=msg)))
+		{
+			lastMsg=new WeakReference<CMMsg>(msg);
+			msg.source().location().show(mob,null,I,CMMsg.MSG_OK_VISUAL,L("<O-NAME> attracts a charge to <S-NAME>!"));
+			if(mob.okMessage(mob, msg))
+				msg.modify(msg.source(),
+							mob,
+							msg.tool(),
+							msg.sourceCode(),
+							msg.sourceMessage(),
+							msg.targetCode(),
+							msg.targetMessage(),
+							msg.othersCode(),
+							msg.othersMessage());
+		}
+		return true;
+	}
+
+
+	@Override
+	public void unInvoke()
+	{
+		// undo the affects of this spell
+		if(affected==null)
+		{
+			super.unInvoke();
+			return;
+		}
+
+		if(canBeUninvoked())
+		if(affected instanceof MOB)
+		{
+			for(int i=0;i<affectedItems.size();i++)
+			{
+				final Item I=affectedItems.get(i);
+				Ability A=I.fetchEffect(this.ID());
+				while(A!=null)
+				{
+					I.delEffect(A);
+					A=I.fetchEffect(this.ID());
+				}
+
+			}
+		}
+		super.unInvoke();
+	}
+
+	@Override
+	public int castingQuality(MOB mob, Physical target)
+	{
+		if(mob!=null)
+		{
+			if(target instanceof MOB)
+			{
+				final Item I=wieldingMetal((MOB)target);
+				if(I==null)
+					return Ability.QUALITY_INDIFFERENT;
+			}
+		}
+		return super.castingQuality(mob,target);
+	}
+
+	@Override
+	public boolean invoke(MOB mob, Vector commands, Physical givenTarget, boolean auto, int asLevel)
+	{
+		final Physical target=getAnyTarget(mob,commands,givenTarget,Wearable.FILTER_ANY);
+		if(target==null) return false;
+		Item I=null;
+		if(target instanceof MOB) I=wieldingMetal((MOB)target);
+
+		if((target instanceof Item)
+		&&(CMLib.flags().isMetal(target)))
+			I=(Item)target;
+		else
+		if(target instanceof Item)
+		{
+			mob.tell(L("@x1 is not made of metal!",target.name(mob)));
+			return false;
+		}
+		// the invoke method for spells receives as
+		// parameters the invoker, and the REMAINING
+		// command line parameters, divided into words,
+		// and added as String objects to a vector.
+		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
+			return false;
+
+		boolean success=proficiencyCheck(mob,0,auto);
+
+		if((success)&&(I!=null))
+		{
+			// it worked, so build a copy of this ability,
+			// and add it to the affects list of the
+			// affected MOB.  Then tell everyone else
+			// what happened.
+			invoker=mob;
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?"":L("^S<S-NAME> chant(s) upon <T-NAMESELF>.^?"));
+			if(mob.location().okMessage(mob,msg))
+			{
+				mob.location().send(mob,msg);
+				if(msg.value()<=0)
+					success=maliciousAffect(mob,I,asLevel,0,-1)!=null;
+			}
+		}
+		else
+			return maliciousFizzle(mob,target,L("<S-NAME> chant(s) at <T-NAMESELF>, but nothing happens."));
+
+		// return whether it worked
+		return success;
+	}
+}

@@ -1,0 +1,168 @@
+package com.suscipio_solutions.consecro_mud.Abilities.interfaces;
+import java.util.LinkedList;
+import java.util.List;
+
+import com.suscipio_solutions.consecro_mud.Items.interfaces.DoorKey;
+import com.suscipio_solutions.consecro_mud.Items.interfaces.Item;
+import com.suscipio_solutions.consecro_mud.MOBS.interfaces.MOB;
+import com.suscipio_solutions.consecro_mud.core.collections.Pair;
+
+
+/**
+ * This interface denotes an ability that also incidentally is capable
+ * of generating objects, usually items.  This is probably a common
+ * skill, but one could imagine an itemcraftor also being a spell that
+ * generates its own items.  Also the item generation is an incidental
+ * and internal aspect of the ability, these methods allow that
+ * functionality to be exposed for immortal use.
+ */
+public interface ItemCraftor extends Ability
+{
+	/**
+	 * A Vector containing an entry for each craftable recipe
+	 * Each craftable recipe is also a vector of strings.
+	 * @return a vector of vectors
+	 */
+	public List<List<String>> fetchRecipes();
+
+	/**
+	 * A String containing the format of each entry in the parameter file
+	 * in a recipe.
+	 * @return a String showing the format of each entry in the parameter file
+	 */
+	public String parametersFormat();
+
+	/**
+	 * A String naming the file where the recipes are found
+	 * @return a String naming the file where the recipes are found
+	 */
+	public String parametersFile();
+
+	/**
+	 * Returns a vector containing an entry for each craftable recipe
+	 * whose name matches the given name.  Each entry is also a vector.
+	 * @param recipeName the name of the recipe to craft
+	 * @param beLoose whether to be specific or "loose" with name matching
+	 * @return a vector of vectors
+	 */
+	public List<List<String>> matchingRecipeNames(String recipeName, boolean beLoose);
+
+	/**
+	 * Crafts a random item of a type supported by this class of
+	 * the given resource code.
+	 * Returns a vector containing the finished Item.  A second element is
+	 * rare, but will occur when a key is required and also generated.
+	 * @param material the rawmaterial code to make the item out of
+	 * @return a vector of Item(s)
+	 */
+	public ItemKeyPair craftAnyItem(int material);
+
+	/**
+	 * Crafts every item of a type supported by this class of
+	 * the given resource code.  Each finished item is represented
+	 * as a vector in the returned vector. The item vector usually
+	 * only contains the finished item, but a second element will
+	 * occur when a key is required and also generated.
+	 * @param material the rawmaterial code to make the item out of
+	 * @param forceLevels forces crafted item to have a level if it otherwise doesn't
+	 * @return a vector of vectors of item(s)
+	 */
+	public List<ItemKeyPair> craftAllItemSets(int material, boolean forceLevels);
+
+	/**
+	 * Crafts every item of a type supported by this class of
+	 * every supported material.  Each finished item is represented
+	 * as a vector in the returned vector. The item vector usually
+	 * only contains the finished item, but a second element will
+	 * occur when a key is required and also generated.
+	 * @param forceLevels forces crafted item to have a level if it otherwise doesn't
+	 * @return a vector of vectors of item vector(s)
+	 */
+	public List<ItemKeyPair> craftAllItemSets(boolean forceLevels);
+
+	/**
+	 * Crafts the item specified by the recipe name, of a supported
+	 * material type which this class can produce.
+	 * Returns a vector containing the finished Item.  A second element is
+	 * rare, but will occur when a key is required and also generated.
+	 * @param recipeName the name of the item to make
+	 * @return a vector of Item(s)
+	 */
+	public ItemKeyPair craftItem(String recipeName);
+
+	/**
+	 * Crafts the item specified by the recipe name, of the specified
+	 * material type which this class can produce or -1 for any material.
+	 * Returns a vector containing the finished Item.  A second element is
+	 * rare, but will occur when a key is required and also generated.
+	 * @param recipeName the name of the item to make
+	 * @param material the rawmaterial code to make the item out of, or -1
+	 * @param forceLevels forces crafted item to have a level if it otherwise doesn't
+	 * @return a vector of Item(s)
+	 */
+	public ItemKeyPair craftItem(String recipeName, int material, boolean forceLevels);
+
+	/**
+	 * Returns a Vector of Integer objects where each Integer
+	 * is a fully qualified RawMaterial code.
+	 * @see com.suscipio_solutions.consecro_mud.Items.interfaces.RawMaterial
+	 * @return a vector of integers
+	 */
+	public List<Integer> myResources();
+
+	/**
+	 * For auto-crafting, this object represents an item,
+	 * and (optionally) a key to go with it.
+	 * @author bzimmerman
+	 */
+	public class ItemKeyPair
+	{
+		public Item item;
+		public DoorKey key;
+		public ItemKeyPair(Item item, DoorKey key) { this.item=item; this.key=key;}
+		public List<Item> asList()
+		{
+			final List<Item> list = new LinkedList<Item>();
+			if(item!=null) list.add(item);
+			if(key != null) list.add(key);
+			return list;
+		}
+
+	}
+
+	/**
+	 * Returns whether the given item could have been crafted by this skill.
+	 * @param I the item to examine
+	 * @return true if the item is consistent with this crafting, or false otherwise
+	 */
+	public boolean mayICraft(final Item I);
+
+	/**
+	 * Returns true if mundane items can be demonstructed into recipes with this skill.
+	 * @return true if mundane items can be demonstructed into recipes with this skill.
+	 */
+	public boolean supportsDeconstruction();
+
+	/**
+	 * Returns the ratio of the weight of material used to make an item with this
+	 * skill versus the item weight when finished
+	 * @param bundling true if the item being created is just a raw resource bundle
+	 * @return the ratio of the weight of material used to make an item with this
+	 */
+	public double getItemWeightMultiplier(boolean bundling);
+
+	/**
+	 * Given a raw recipe, returns a description of the required components to build it.
+	 * @param mob the potential builder
+	 * @param recipe the raw recipe description
+	 * @return a descriptive string
+	 */
+	public String getDecodedComponentsDescription(final MOB mob, final List<String> recipe);
+
+	/**
+	 * Given a raw recipe, returns the raw name and level of the item built therefrom.
+	 * @param recipe the raw recipe description
+	 * @return a descriptive pair
+	 */
+	public Pair<String,Integer> getDecodedItemNameAndLevel(final List<String> recipe);
+}

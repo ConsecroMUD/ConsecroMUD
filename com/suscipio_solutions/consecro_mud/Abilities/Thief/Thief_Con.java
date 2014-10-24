@@ -1,0 +1,182 @@
+package com.suscipio_solutions.consecro_mud.Abilities.Thief;
+import java.util.List;
+import java.util.Vector;
+
+import com.suscipio_solutions.consecro_mud.Abilities.interfaces.Ability;
+import com.suscipio_solutions.consecro_mud.Commands.interfaces.Command;
+import com.suscipio_solutions.consecro_mud.Common.interfaces.CMMsg;
+import com.suscipio_solutions.consecro_mud.Common.interfaces.CharStats;
+import com.suscipio_solutions.consecro_mud.MOBS.interfaces.MOB;
+import com.suscipio_solutions.consecro_mud.core.CMClass;
+import com.suscipio_solutions.consecro_mud.core.CMLib;
+import com.suscipio_solutions.consecro_mud.core.CMParms;
+import com.suscipio_solutions.consecro_mud.core.CMProps;
+import com.suscipio_solutions.consecro_mud.core.CMath;
+import com.suscipio_solutions.consecro_mud.core.collections.XVector;
+import com.suscipio_solutions.consecro_mud.core.interfaces.CMObject;
+import com.suscipio_solutions.consecro_mud.core.interfaces.Environmental;
+import com.suscipio_solutions.consecro_mud.core.interfaces.Physical;
+
+
+@SuppressWarnings({"unchecked","rawtypes"})
+public class Thief_Con extends ThiefSkill
+{
+	@Override public String ID() { return "Thief_Con"; }
+	private final static String localizedName = CMLib.lang().L("Con");
+	@Override public String name() { return localizedName; }
+	@Override protected int canAffectCode(){return 0;}
+	@Override protected int canTargetCode(){return CAN_MOBS;}
+	@Override public int abstractQuality(){return Ability.QUALITY_OK_OTHERS;}
+	private static final String[] triggerStrings =I(new String[] {"CON"});
+	@Override public String[] triggerStrings(){return triggerStrings;}
+	@Override protected boolean disregardsArmorCheck(MOB mob){return true;}
+	@Override public int classificationCode() {   return Ability.ACODE_SKILL|Ability.DOMAIN_DECEPTIVE; }
+	protected MOB lastChecked=null;
+	@Override public double castingTime(final MOB mob, final List<String> cmds){return CMProps.getSkillActionCost(ID(),CMath.div(CMProps.getIntVar(CMProps.Int.DEFABLETIME),20.0));}
+	@Override
+	public boolean preInvoke(MOB mob, List<String> commands, Physical givenTarget, boolean auto, int asLevel, int secondsElapsed, double actionsRemaining)
+	{
+		if(commands!=null) commands=new XVector<String>(commands);
+		if(!conCheck(mob,commands,givenTarget,auto,asLevel))
+			return false;
+		final Vector V=new Vector();
+		V.addElement(commands.get(0));
+		final MOB target=this.getTarget(mob,V,givenTarget);
+		if(target==null) return false;
+		commands.remove(0);
+		if(secondsElapsed>0)
+		{
+			if((secondsElapsed%4)==0)
+				return mob.location().show(mob,target,CMMsg.MSG_SPEAK,L("^T<S-NAME> continue(s) conning <T-NAMESELF> to '@x1'.^?",CMParms.combine(commands,0)));
+			return true;
+		}
+		final CMMsg msg=CMClass.getMsg(mob,target,this,CMMsg.MSG_SPEAK,L("^T<S-NAME> attempt(s) to con <T-NAMESELF> to '@x1'.^?",CMParms.combine(commands,0)));
+		if(mob.location().okMessage(mob,msg))
+			mob.location().send(mob,msg);
+		else
+			return false;
+		return true;
+	}
+
+	public boolean conCheck(MOB mob, List<String> commands, Environmental givenTarget, boolean auto, int asLevel)
+	{
+		if(commands!=null) commands= new XVector<String>(commands);
+		if(commands.size()<1)
+		{
+			mob.tell(L("Con whom into doing what?"));
+			return false;
+		}
+		final Vector V=new Vector();
+		V.addElement(commands.get(0));
+		final MOB target=this.getTarget(mob,V,givenTarget);
+		if(target==null) return false;
+
+		commands.remove(0);
+
+		if((!target.mayIFight(mob))
+		||(!target.isMonster())
+		||(target.charStats().getStat(CharStats.STAT_INTELLIGENCE)<3))
+		{
+			mob.tell(L("You can't con @x1.",target.name(mob)));
+			return false;
+		}
+
+		if(target.isInCombat())
+		{
+			mob.tell(L("@x1 is too busy fighting right now.",target.name(mob)));
+			return false;
+		}
+
+		if(mob.isInCombat())
+		{
+			mob.tell(L("You are too busy fighting right now."));
+			return false;
+		}
+
+		if(commands.size()<1)
+		{
+			mob.tell(L("Con @x1 into doing what?",target.charStats().himher()));
+			return false;
+		}
+
+
+		if(commands.get(0).toUpperCase().startsWith("FOL"))
+		{
+			mob.tell(L("You can't con someone into following you."));
+			return false;
+		}
+
+		CMObject O=CMLib.english().findCommand(target,commands);
+		if(O instanceof Command)
+		{
+			if((!((Command)O).canBeOrdered())||(!((Command)O).securityCheck(mob))||(((Command)O).ID().equals("Sleep")))
+			{
+				mob.tell(L("You can't con someone into doing that."));
+				return false;
+			}
+		}
+		else
+		{
+			if(O instanceof Ability)
+				O=CMLib.english().getToEvoke(target,commands);
+			if(O instanceof Ability)
+			{
+				if(CMath.bset(((Ability)O).flags(),Ability.FLAG_NOORDERING))
+				{
+					mob.tell(L("You can't con @x1 to do that.",target.name(mob)));
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+
+	@Override
+	public boolean invoke(MOB mob, Vector commands, Physical givenTarget, boolean auto, int asLevel)
+	{
+		if(commands!=null) commands=new XVector(commands);
+		if(!conCheck(mob,commands,givenTarget,auto,asLevel))
+			return false;
+		final Vector V=new Vector();
+		V.addElement(commands.elementAt(0));
+		final MOB target=this.getTarget(mob,V,givenTarget);
+		if(target==null) return false;
+		commands.removeElementAt(0);
+
+		final int oldProficiency=proficiency();
+
+		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
+			return false;
+
+		int levelDiff=((mob.phyStats().level()+(2*super.getXLEVELLevel(mob)))-target.phyStats().level())*10;
+		if(levelDiff>0) levelDiff=0;
+		final boolean success=proficiencyCheck(mob,(mob.charStats().getStat(CharStats.STAT_CHARISMA)*2)+levelDiff,auto);
+
+		if(!success)
+		{
+			final CMMsg msg=CMClass.getMsg(mob,target,this,CMMsg.MSG_SPEAK,L("^T<S-NAME> tr(ys) to con <T-NAMESELF> to '@x1', but <S-IS-ARE> unsuccessful.^?",CMParms.combine(commands,0)));
+			if(mob.location().okMessage(mob,msg))
+				mob.location().send(mob,msg);
+		}
+		else
+		{
+			final CMMsg msg=CMClass.getMsg(mob,target,this,CMMsg.MSG_SPEAK,L("^T<S-NAME> con(s) <T-NAMESELF> to '@x1'.^?",CMParms.combine(commands,0)));
+			mob.recoverPhyStats();
+			final CMMsg omsg=CMClass.getMsg(mob,target,null,CMMsg.MSG_ORDER,null);
+			if((mob.location().okMessage(mob,msg))
+			&&(mob.location().okMessage(mob, omsg)))
+			{
+				mob.location().send(mob,msg);
+				mob.location().send(mob,omsg);
+				if(omsg.sourceMinor()==CMMsg.TYP_ORDER)
+					target.enqueCommand(commands,Command.METAFLAG_FORCED|Command.METAFLAG_ORDER,0);
+			}
+			target.recoverPhyStats();
+		}
+		if(target==lastChecked)
+			setProficiency(oldProficiency);
+		lastChecked=target;
+		return success;
+	}
+
+}

@@ -1,0 +1,105 @@
+package com.suscipio_solutions.consecro_mud.Abilities.Ranger;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.Vector;
+
+import com.suscipio_solutions.consecro_mud.Abilities.StdAbility;
+import com.suscipio_solutions.consecro_mud.Abilities.interfaces.Ability;
+import com.suscipio_solutions.consecro_mud.Common.interfaces.PhyStats;
+import com.suscipio_solutions.consecro_mud.MOBS.interfaces.MOB;
+import com.suscipio_solutions.consecro_mud.core.CMLib;
+import com.suscipio_solutions.consecro_mud.core.CMath;
+import com.suscipio_solutions.consecro_mud.core.interfaces.Physical;
+import com.suscipio_solutions.consecro_mud.core.interfaces.Tickable;
+
+
+@SuppressWarnings({"unchecked","rawtypes"})
+public class Ranger_AnimalFrenzy extends StdAbility
+{
+	@Override public String ID() { return "Ranger_AnimalFrenzy"; }
+	private final static String localizedName = CMLib.lang().L("Animal Frenzy");
+	@Override public String name() { return localizedName; }
+	@Override public String displayText(){return "";}
+	@Override public int abstractQuality(){return Ability.QUALITY_OK_OTHERS;}
+	@Override public boolean isAutoInvoked(){return true;}
+	@Override public boolean canBeUninvoked(){return false;}
+	@Override protected int canAffectCode(){return Ability.CAN_MOBS;}
+	@Override protected int canTargetCode(){return 0;}
+	protected Vector rangersGroup=null;
+	@Override public int classificationCode(){return Ability.ACODE_SKILL|Ability.DOMAIN_ANIMALAFFINITY;}
+
+	@Override
+	public boolean tick(Tickable ticking, int tickID)
+	{
+		if(!super.tick(ticking,tickID)) return false;
+		if(!(affected instanceof MOB))
+			return false;
+		if(invoker==null)
+		{
+			if(CMLib.flags().isAnimalIntelligence((MOB)affected)
+			&&(((MOB)affected).isMonster()))
+				return true;
+			invoker=(MOB)affected;
+		}
+		if(invoker!=affected) return true;
+		if(rangersGroup==null)
+			rangersGroup=new Vector();
+
+		if(rangersGroup!=null)
+		{
+			final Set<MOB> H=invoker.getGroupMembers(new HashSet<MOB>());
+			for (final Object element : H)
+			{
+				final MOB mob=(MOB)element;
+				if((!rangersGroup.contains(mob))
+				&&(mob!=invoker)
+				&&(mob.location()==invoker.location())
+				&&(CMLib.flags().isAnimalIntelligence(mob)))
+				{
+					rangersGroup.addElement(mob);
+					mob.addNonUninvokableEffect((Ability)this.copyOf());
+					final Ability A=mob.fetchEffect(ID());
+					if(A!=null)A.setSavable(false);
+				}
+			}
+			for(int i=rangersGroup.size()-1;i>=0;i--)
+			{
+				try
+				{
+					final MOB mob=(MOB)rangersGroup.elementAt(i);
+					if((!H.contains(mob))
+					||(mob.location()!=invoker.location()))
+					{
+						final Ability A=mob.fetchEffect(this.ID());
+						if((A!=null)&&(A.invoker()==invoker))
+							mob.delEffect(A);
+						rangersGroup.removeElement(mob);
+					}
+				}
+				catch(final java.lang.ArrayIndexOutOfBoundsException e)
+				{
+				}
+			}
+			if((CMLib.dice().rollPercentage()<5)
+			&&(invoker.isInCombat())
+			&&(rangersGroup.size()>0))
+				helpProficiency(invoker, 0);
+		}
+		return true;
+	}
+
+	@Override
+	public void affectPhyStats(Physical affected, PhyStats affectableStats)
+	{
+		super.affectPhyStats(affected,affectableStats);
+		if((invoker!=null)&&(affected!=invoker)&&(invoker.isInCombat()))
+		{
+			final float f=super.getXLEVELLevel(invoker());
+			final int invoAtt=(int)Math.round(CMath.mul(CMath.div(proficiency(),100.0-(f*5.0)),invoker.phyStats().attackAdjustment()));
+			final int damBonus=(int)Math.round(CMath.mul(affectableStats.damage(),(CMath.div(proficiency(),100.0-(f*5.0))*4.0)));
+			affectableStats.setDamage(affectableStats.damage()+damBonus);
+			if(affectableStats.attackAdjustment()<invoAtt)
+				affectableStats.setAttackAdjustment(invoAtt);
+		}
+	}
+}

@@ -1,0 +1,227 @@
+package com.suscipio_solutions.consecro_mud.Abilities.Properties;
+import com.suscipio_solutions.consecro_mud.Abilities.interfaces.Ability;
+import com.suscipio_solutions.consecro_mud.Abilities.interfaces.TriggeredAffect;
+import com.suscipio_solutions.consecro_mud.Common.interfaces.CMMsg;
+import com.suscipio_solutions.consecro_mud.Common.interfaces.CharStats;
+import com.suscipio_solutions.consecro_mud.Items.interfaces.Item;
+import com.suscipio_solutions.consecro_mud.Items.interfaces.Weapon;
+import com.suscipio_solutions.consecro_mud.MOBS.interfaces.MOB;
+import com.suscipio_solutions.consecro_mud.core.CMClass;
+import com.suscipio_solutions.consecro_mud.core.CMLib;
+import com.suscipio_solutions.consecro_mud.core.CMProps;
+import com.suscipio_solutions.consecro_mud.core.CMStrings;
+import com.suscipio_solutions.consecro_mud.core.CMath;
+import com.suscipio_solutions.consecro_mud.core.interfaces.Environmental;
+
+
+public class Prop_HaveResister extends Property implements TriggeredAffect
+{
+	@Override public String ID() { return "Prop_HaveResister"; }
+	@Override public String name(){ return "Resistance due to ownership";}
+	@Override protected int canAffectCode(){return Ability.CAN_ITEMS;}
+	@Override public boolean bubbleAffect(){return true;}
+	protected CharStats adjCharStats=null;
+	protected String maskString="";
+	protected String parmString="";
+	protected boolean ignoreCharStats=true;
+	protected long lastProtection=0;
+	protected int remainingProtection=0;
+
+	@Override public long flags(){return Ability.FLAG_RESISTER;}
+
+	@Override
+	public int triggerMask()
+	{
+		return TriggeredAffect.TRIGGER_GET;
+	}
+
+	@Override
+	public void setMiscText(String newText)
+	{
+		super.setMiscText(newText);
+		adjCharStats=(CharStats)CMClass.getCommon("DefaultCharStats");
+		ignoreCharStats=true;
+		parmString=newText;
+		final int maskindex=newText.toUpperCase().indexOf("MASK=");
+		if(maskindex>0)
+		{
+			maskString=newText.substring(maskindex+5).trim();
+			parmString=newText.substring(0,maskindex).trim();
+		}
+		for(final int i : CharStats.CODES.SAVING_THROWS())
+		{
+			if(parmString.toUpperCase().indexOf(CharStats.CODES.NAME(i))>=0)
+				adjCharStats.setStat(i,getProtection(CharStats.CODES.NAME(i)));
+			else
+				adjCharStats.setStat(i,getProtection(CMStrings.limit(CharStats.CODES.NAME(i),4)));
+			if(adjCharStats.getStat(i)!=0)
+				ignoreCharStats=false;
+		}
+	}
+
+	protected void ensureStarted()
+	{
+		if(adjCharStats==null)
+			setMiscText(text());
+	}
+
+	@Override
+	public void affectCharStats(MOB affectedMOB, CharStats affectedStats)
+	{
+		ensureStarted();
+		if((!ignoreCharStats)
+		&&(canResist(affectedMOB))
+		&&((maskString.length()==0)||(CMLib.masking().maskCheck(maskString,affectedMOB,false))))
+			for(final int i : CharStats.CODES.SAVING_THROWS())
+				affectedStats.setStat(i,affectedStats.getStat(i)+adjCharStats.getStat(i));
+		super.affectCharStats(affectedMOB,affectedStats);
+	}
+
+
+	public boolean checkProtection(String protType){ return getProtection(protType)!=0;}
+
+	public int getProtection(String protType)
+	{
+		final String nonMask=parmString.toUpperCase();
+		final int z=nonMask.indexOf(protType.toUpperCase());
+		if(z<0)
+			return 0;
+		int x=nonMask.indexOf('%',z+protType.length());
+		if(x<0)
+			return 50;
+		int mul=1;
+		int tot=0;
+		while((--x)>=0)
+		{
+			if(Character.isDigit(nonMask.charAt(x)))
+				tot+=CMath.s_int(""+nonMask.charAt(x))*mul;
+			else
+			{
+				if(nonMask.charAt(x)=='-')
+					mul=mul*-1;
+				x=-1;
+			}
+			mul=mul*10;
+		}
+		return tot;
+	}
+
+	protected int weaponProtection(String kind, int damage, int myLevel, int hisLevel)
+	{
+		int protection=remainingProtection;
+		if((System.currentTimeMillis()-lastProtection)>=CMProps.getTickMillis())
+		{    protection=(getProtection(kind)+(myLevel-hisLevel)); lastProtection=System.currentTimeMillis();}
+		if(protection<=0) return damage;
+		remainingProtection=protection-100;
+		if(protection>=100){ return 0;}
+		return (int)Math.round(CMath.mul(damage,1.0-CMath.div(protection,100.0)));
+	}
+
+	public void resistAffect(CMMsg msg, MOB mob, Ability me, String maskString)
+	{
+		if(mob.location()==null) return;
+		if(mob.amDead()) return;
+		if(!msg.amITarget(mob)) return;
+
+		if((msg.targetMinor()==CMMsg.TYP_DAMAGE)
+		&&((msg.value())>0)
+		&&(msg.tool()!=null)
+		&&(msg.tool() instanceof Weapon))
+		{
+			if(checkProtection("weapons"))
+			{
+				if((maskString.length()==0)||(CMLib.masking().maskCheck(maskString,mob,false)))
+					msg.setValue(weaponProtection("weapons",msg.value(),mob.phyStats().level(),msg.source().phyStats().level()));
+			}
+			else
+			{
+				final Weapon W=(Weapon)msg.tool();
+				if((W.weaponType()==Weapon.TYPE_BASHING)
+				&&(checkProtection("blunt"))
+				&&((maskString.length()==0)||(CMLib.masking().maskCheck(maskString,mob,false))))
+					msg.setValue(weaponProtection("blunt",msg.value(),mob.phyStats().level(),msg.source().phyStats().level()));
+				if((W.weaponType()==Weapon.TYPE_PIERCING)
+				&&(checkProtection("pierce"))
+				&&((maskString.length()==0)||(CMLib.masking().maskCheck(maskString,mob,false))))
+					msg.setValue(weaponProtection("pierce",msg.value(),mob.phyStats().level(),msg.source().phyStats().level()));
+				if((W.weaponType()==Weapon.TYPE_SLASHING)
+				&&(checkProtection("slash"))
+				&&((maskString.length()==0)||(CMLib.masking().maskCheck(maskString,mob,false))))
+					msg.setValue(weaponProtection("slash",msg.value(),mob.phyStats().level(),msg.source().phyStats().level()));
+			}
+			return;
+		}
+	}
+
+	@Override
+	public String accountForYourself()
+	{ return "The owner gains resistances: "+describeResistance(text());}
+
+	public boolean isOk(CMMsg msg, Ability me, MOB mob, String maskString)
+	{
+		if(CMath.bset(msg.targetMajor(),CMMsg.MASK_MAGIC))
+		{
+			if(msg.tool() instanceof Ability)
+			{
+				final Ability A=(Ability)msg.tool();
+				if(CMath.bset(A.flags(),Ability.FLAG_TRANSPORTING))
+				{
+					if((checkProtection("teleport"))
+					&&((maskString.length()==0)||(CMLib.masking().maskCheck(maskString,mob,false))))
+					{
+						msg.source().tell(L("You can't seem to fixate on '@x1'.",mob.name()));
+						return false;
+					}
+				}
+				else
+				if(!CMath.bset(msg.targetMajor(),CMMsg.MASK_MALICIOUS))
+					return true;
+				else
+				if(((A.classificationCode()&Ability.ALL_ACODES)==Ability.ACODE_PRAYER)
+				&&(CMath.bset(A.flags(),Ability.FLAG_HOLY))
+				&&(!CMath.bset(A.flags(),Ability.FLAG_UNHOLY)))
+				{
+					if((checkProtection("holy"))
+					&&((maskString.length()==0)||(CMLib.masking().maskCheck(maskString,mob,false))))
+					{
+						mob.location().show(msg.source(),mob,CMMsg.MSG_OK_VISUAL,L("Holy energies from <S-NAME> are repelled from <T-NAME>."));
+						return false;
+					}
+				}
+			}
+		}
+		return true;
+	}
+
+	public String describeResistance(String text)
+	{
+		String id=parmString+".";
+		if(maskString.length()>0)
+			id+="  Restrictions: "+CMLib.masking().maskDesc(maskString)+".";
+		return id;
+	}
+
+	public boolean canResist(Environmental E)
+	{
+		if((affected instanceof Item)
+		&&(E instanceof MOB)
+		&&(!((Item)affected).amDestroyed())
+		&&(E==((Item)affected).owner()))
+			return true;
+		return false;
+	}
+
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
+	{
+		if((canResist(msg.target()))
+		&&(msg.target() instanceof MOB)
+		&&(((MOB)msg.target()).location()!=null))
+		{
+			if((msg.value()<=0)&&(!isOk(msg,this,(MOB)msg.target(),maskString)))
+				return false;
+			resistAffect(msg,(MOB)msg.target(),this,maskString);
+		}
+		return true;
+	}
+}

@@ -1,0 +1,11 @@
+\n\r
+#====================================================================#
+|                         -+-- STAT LIST --+-                        |
+#====================================================================#
+| STRENGTH      : fighting prowess is reflected in strength          |
+| DEXTERITY     : agility and the ability to dodge blows             |
+| CONSTITUTION  : health and stamina                                 |
+| INTELLIGENCE  : memory and concentration, ability to learn spells  |
+| WISDOM        : Intuition, gain more practice points per level     |
+| CHARISMA      : Grace, charm, and the ability to get better prices |
+#====================================================================#

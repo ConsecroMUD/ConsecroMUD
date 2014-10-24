@@ -1,0 +1,54 @@
+package com.suscipio_solutions.consecro_mud.Abilities.Fighter;
+import com.suscipio_solutions.consecro_mud.Abilities.interfaces.Ability;
+import com.suscipio_solutions.consecro_mud.Common.interfaces.PhyStats;
+import com.suscipio_solutions.consecro_mud.MOBS.interfaces.MOB;
+import com.suscipio_solutions.consecro_mud.core.CMLib;
+import com.suscipio_solutions.consecro_mud.core.interfaces.Physical;
+import com.suscipio_solutions.consecro_mud.core.interfaces.Tickable;
+
+
+
+public class Fighter_BlindFighting extends FighterSkill
+{
+	@Override public String ID() { return "Fighter_BlindFighting"; }
+	private final static String localizedName = CMLib.lang().L("Blind Fighting");
+	@Override public String name() { return localizedName; }
+	@Override public String displayText(){ return "";}
+	@Override public int abstractQuality(){return Ability.QUALITY_BENEFICIAL_SELF;}
+	@Override protected int canAffectCode(){return Ability.CAN_MOBS;}
+	@Override protected int canTargetCode(){return 0;}
+	@Override public boolean isAutoInvoked(){return true;}
+	@Override public boolean canBeUninvoked(){return false;}
+	@Override public int classificationCode(){ return Ability.ACODE_SKILL|Ability.DOMAIN_MARTIALLORE;}
+	protected boolean seeEnabled = false;
+
+	@Override
+	public void affectPhyStats(Physical affected, PhyStats affectableStats)
+	{
+		super.affectPhyStats(affected,affectableStats);
+		if(affected==null) return;
+		if(!(affected instanceof MOB)) return;
+		if(seeEnabled)
+			affectableStats.setSensesMask(affectableStats.sensesMask()|PhyStats.CAN_SEE_VICTIM);
+	}
+
+	@Override
+	public boolean tick(Tickable ticking, int tickID)
+	{
+		if(!super.tick(ticking, tickID))
+			return false;
+		seeEnabled = false;
+		if(!(ticking instanceof MOB)) return true;
+		final MOB mob=(MOB)ticking;
+		if(!mob.isInCombat()) return true;
+		if((!CMLib.flags().canBeSeenBy(mob.getVictim(),mob))
+		&&(CMLib.flags().canBeHeardMovingBy(mob.getVictim(),mob))
+		&&((mob.fetchAbility(ID())==null)||proficiencyCheck(mob,0,false)))
+		{
+			seeEnabled=true;
+			if(CMLib.dice().rollPercentage()<10)
+				helpProficiency(mob, 0);
+		}
+		return true;
+	}
+}

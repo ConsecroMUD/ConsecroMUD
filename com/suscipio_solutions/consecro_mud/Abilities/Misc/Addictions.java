@@ -1,0 +1,167 @@
+package com.suscipio_solutions.consecro_mud.Abilities.Misc;
+import java.util.Vector;
+
+import com.suscipio_solutions.consecro_mud.Abilities.StdAbility;
+import com.suscipio_solutions.consecro_mud.Abilities.interfaces.Ability;
+import com.suscipio_solutions.consecro_mud.Common.interfaces.CMMsg;
+import com.suscipio_solutions.consecro_mud.Items.interfaces.Container;
+import com.suscipio_solutions.consecro_mud.Items.interfaces.Food;
+import com.suscipio_solutions.consecro_mud.Items.interfaces.Item;
+import com.suscipio_solutions.consecro_mud.Items.interfaces.Light;
+import com.suscipio_solutions.consecro_mud.Items.interfaces.Wearable;
+import com.suscipio_solutions.consecro_mud.Libraries.interfaces.TimeManager;
+import com.suscipio_solutions.consecro_mud.MOBS.interfaces.MOB;
+import com.suscipio_solutions.consecro_mud.core.CMClass;
+import com.suscipio_solutions.consecro_mud.core.CMLib;
+import com.suscipio_solutions.consecro_mud.core.CMath;
+import com.suscipio_solutions.consecro_mud.core.interfaces.Drink;
+import com.suscipio_solutions.consecro_mud.core.interfaces.Environmental;
+import com.suscipio_solutions.consecro_mud.core.interfaces.Physical;
+import com.suscipio_solutions.consecro_mud.core.interfaces.Tickable;
+
+
+
+@SuppressWarnings("rawtypes")
+public class Addictions extends StdAbility
+{
+	@Override public String ID() { return "Addictions"; }
+	private final static String localizedName = CMLib.lang().L("Addictions");
+	@Override public String name() { return localizedName; }
+	private long lastFix=System.currentTimeMillis();
+	@Override public String displayText(){ return craving()?"(Addiction to "+text()+")":"";}
+	@Override protected int canAffectCode(){return CAN_MOBS;}
+	@Override protected int canTargetCode(){return 0;}
+	@Override public int abstractQuality(){return Ability.QUALITY_OK_SELF;}
+	@Override public int classificationCode(){return Ability.ACODE_PROPERTY;}
+	@Override public boolean isAutoInvoked(){return true;}
+	@Override public boolean canBeUninvoked(){return false;}
+	private Item puffCredit=null;
+	private final static long CRAVE_TIME=TimeManager.MILI_HOUR;
+	private final static long WITHDRAW_TIME=TimeManager.MILI_DAY;
+
+	private boolean craving(){return (System.currentTimeMillis()-lastFix)>CRAVE_TIME;}
+
+	@Override
+	public boolean tick(Tickable ticking, int tickID)
+	{
+		if(!super.tick(ticking,tickID))
+			return false;
+
+		if((craving())
+		&&(CMLib.dice().rollPercentage()<=((System.currentTimeMillis()-lastFix)/TimeManager.MILI_HOUR))
+		&&(ticking instanceof MOB))
+		{
+			if((System.currentTimeMillis()-lastFix)>WITHDRAW_TIME)
+			{
+				((MOB)ticking).tell(L("You've managed to kick your addiction."));
+				canBeUninvoked=true;
+				unInvoke();
+				((MOB)ticking).delEffect(this);
+				return false;
+			}
+			if((puffCredit!=null)
+			&&(puffCredit.amDestroyed()
+				||puffCredit.amWearingAt(Wearable.IN_INVENTORY)
+				||puffCredit.owner()!=(MOB)affected))
+				puffCredit=null;
+			switch(CMLib.dice().roll(1,7,0))
+			{
+			case 1: ((MOB)ticking).tell(L("Man, you could sure use some @x1.",text())); break;
+			case 2: ((MOB)ticking).tell(L("Wouldn't some @x1 be great right about now?",text())); break;
+			case 3: ((MOB)ticking).tell(L("You are seriously craving @x1.",text())); break;
+			case 4: ((MOB)ticking).tell(L("There's got to be some @x1 around here somewhere.",text())); break;
+			case 5: ((MOB)ticking).tell(L("You REALLY want some @x1.",text())); break;
+			case 6: ((MOB)ticking).tell(L("You NEED some @x1, NOW!",text())); break;
+			case 7: ((MOB)ticking).tell(L("Some @x1 would be lovely.",text())); break;
+			}
+
+		}
+		return true;
+	}
+
+	@Override
+	public boolean okMessage(Environmental host, CMMsg msg)
+	{
+		if((affected!=null)&&(affected instanceof MOB))
+		{
+			if((msg.source()==affected)
+			&&(msg.targetMinor()==CMMsg.TYP_WEAR)
+			&&(msg.target() instanceof Light)
+			&&(msg.target() instanceof Container)
+			&&(CMath.bset(((Item)msg.target()).rawProperLocationBitmap(),Wearable.WORN_MOUTH))
+			&&(((Container)msg.target()).getContents().size()>0)
+			&&(CMLib.english().containsString(((Environmental)((Container)msg.target()).getContents().get(0)).Name(),text())))
+				puffCredit=(Item)msg.target();
+		}
+		return true;
+	}
+
+	@Override
+	public void executeMsg(final Environmental myHost, final CMMsg msg)
+	{
+		if((affected!=null)&&(affected instanceof MOB))
+		{
+			if(msg.source()==affected)
+			{
+				if(((msg.targetMinor()==CMMsg.TYP_EAT)||(msg.targetMinor()==CMMsg.TYP_DRINK))
+				&&((msg.target() instanceof Food)||(msg.target() instanceof Drink))
+				&&(msg.target() instanceof Item)
+				&&(CMLib.english().containsString(msg.target().Name(),text())))
+					lastFix=System.currentTimeMillis();
+				if((msg.amISource((MOB)affected))
+				&&(msg.targetMinor()==CMMsg.TYP_HANDS)
+				&&(msg.target() instanceof Light)
+				&&(msg.tool() instanceof Light)
+				&&(msg.target()==msg.tool())
+				&&(((Light)msg.target()).amWearingAt(Wearable.WORN_MOUTH))
+				&&(((Light)msg.target()).isLit())
+				&&((puffCredit!=null)||CMLib.english().containsString(msg.target().Name(),text())))
+					lastFix=System.currentTimeMillis();
+			}
+		}
+		super.executeMsg(myHost,msg);
+	}
+
+	@Override
+	public boolean invoke(MOB mob, Vector commands, Physical givenTarget, boolean auto, int asLevel)
+	{
+		final Physical target=givenTarget;
+
+		if(target==null) return false;
+		if(target.fetchEffect(ID())!=null) return false;
+
+		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
+			return false;
+		final boolean success=proficiencyCheck(mob,0,auto);
+		if(success)
+		{
+			String addiction=target.Name().toUpperCase();
+			if(addiction.toUpperCase().startsWith("A POUND OF "))
+				addiction=addiction.substring(11);
+			if(addiction.toUpperCase().startsWith("A "))
+				addiction=addiction.substring(2);
+			if(addiction.toUpperCase().startsWith("AN "))
+				addiction=addiction.substring(3);
+			if(addiction.toUpperCase().startsWith("SOME "))
+				addiction=addiction.substring(5);
+			final CMMsg msg=CMClass.getMsg(mob,target,this,CMMsg.MSG_OK_VISUAL,"");
+			if(mob.location()!=null)
+			{
+				if(mob.location().okMessage(mob,msg))
+				{
+					mob.location().send(mob,msg);
+					final Ability A=(Ability)copyOf();
+					A.setMiscText(addiction.trim());
+					mob.addNonUninvokableEffect(A);
+				}
+			}
+			else
+			{
+				final Ability A=(Ability)copyOf();
+				A.setMiscText(addiction.trim());
+				mob.addNonUninvokableEffect(A);
+			}
+		}
+		return success;
+	}
+}

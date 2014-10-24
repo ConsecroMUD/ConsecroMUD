@@ -1,0 +1,8 @@
+\n\r
+#====================================================================#
+|                        -+-- WELCOME --+-                           |
+#====================================================================#
+| You are about to enter a world of high adventure and terrible      |
+| danger. The first step in this process is to decide what sort      |
+| of adventurer you will be.                                         |
+#====================================================================#

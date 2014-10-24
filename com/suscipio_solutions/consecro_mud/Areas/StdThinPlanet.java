@@ -1,0 +1,81 @@
+package com.suscipio_solutions.consecro_mud.Areas;
+import java.util.Enumeration;
+import java.util.Random;
+
+import com.suscipio_solutions.consecro_mud.Areas.interfaces.Area;
+import com.suscipio_solutions.consecro_mud.Common.interfaces.TimeClock;
+import com.suscipio_solutions.consecro_mud.core.CMClass;
+import com.suscipio_solutions.consecro_mud.core.CMLib;
+import com.suscipio_solutions.consecro_mud.core.interfaces.BoundedObject;
+import com.suscipio_solutions.consecro_mud.core.interfaces.CMObject;
+import com.suscipio_solutions.consecro_mud.core.interfaces.SpaceObject;
+
+
+public class StdThinPlanet extends StdThinArea implements SpaceObject
+{
+	@Override public String ID(){	return "StdThinPlanet";}
+
+	protected long[]	coordinates	= new long[3];
+	protected double[]	direction	= new double[2];
+	protected long		radius;
+
+	public StdThinPlanet()
+	{
+		super();
+
+		myClock = (TimeClock)CMClass.getCommon("DefaultTimeClock");
+		coordinates=new long[]{Math.round(Long.MAX_VALUE*Math.random()),Math.round(Long.MAX_VALUE*Math.random()),Math.round(Long.MAX_VALUE*Math.random())};
+		Random random=new Random(System.currentTimeMillis());
+		radius=SpaceObject.Distance.PlanetRadius.dm + (random.nextLong() % (SpaceObject.Distance.PlanetRadius.dm / 20));
+	}
+
+	@Override
+	public CMObject copyOf()
+	{
+		final CMObject O=super.copyOf();
+		if(O instanceof Area) ((Area)O).setTimeObj((TimeClock)CMClass.getCommon("DefaultTimeClock"));
+		return O;
+	}
+
+	@Override public TimeClock getTimeObj(){return myClock;}
+
+	@Override public long getMass() { return radius * MULTIPLIER_PLANET_MASS;}
+
+	@Override
+	public void addChild(Area area)
+	{
+		super.addChild(area);
+		area.setTimeObj(getTimeObj());
+		for(final Enumeration<Area> cA=area.getChildren();cA.hasMoreElements();)
+			cA.nextElement().setTimeObj(getTimeObj());
+	}
+
+	@Override public long[] coordinates(){return coordinates;}
+	@Override public void setCoords(long[] coords)
+	{
+		if((coords!=null)&&(coords.length==3))
+			CMLib.map().moveSpaceObject(this,coords);
+	}
+	@Override public double[] direction(){return direction;}
+	@Override public void setDirection(double[] dir){direction=dir;}
+	@Override public long speed(){return 0;}
+	@Override public void setSpeed(long v){}
+	@Override public long radius() { return radius; }
+	@Override public void setRadius(long radius) { this.radius=radius; }
+	@Override public void setName(String newName)
+	{
+		super.setName(newName);
+		myClock.setLoadName(newName);
+	}
+
+	@Override public SpaceObject knownTarget(){return null;}
+	@Override public void setKnownTarget(SpaceObject O){}
+	@Override public SpaceObject knownSource(){return null;}
+	@Override public void setKnownSource(SpaceObject O){}
+
+	@Override
+	public BoundedCube getBounds()
+	{
+		return new BoundedObject.BoundedCube(coordinates(),radius());
+	}
+}

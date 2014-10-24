@@ -1,0 +1,105 @@
+package com.suscipio_solutions.consecro_mud.Abilities.Spells;
+import java.util.Vector;
+
+import com.suscipio_solutions.consecro_mud.Abilities.interfaces.Ability;
+import com.suscipio_solutions.consecro_mud.Common.interfaces.CMMsg;
+import com.suscipio_solutions.consecro_mud.MOBS.interfaces.MOB;
+import com.suscipio_solutions.consecro_mud.core.CMClass;
+import com.suscipio_solutions.consecro_mud.core.CMLib;
+import com.suscipio_solutions.consecro_mud.core.interfaces.Environmental;
+import com.suscipio_solutions.consecro_mud.core.interfaces.Physical;
+
+
+
+@SuppressWarnings("rawtypes")
+public class Spell_ArmsLength extends Spell
+{
+	@Override public String ID() { return "Spell_ArmsLength"; }
+	private final static String localizedName = CMLib.lang().L("Arms Length");
+	@Override public String name() { return localizedName; }
+	private final static String localizedStaticDisplay = CMLib.lang().L("(Arms Length)");
+	@Override public String displayText() { return localizedStaticDisplay; }
+	@Override public int abstractQuality(){ return Ability.QUALITY_BENEFICIAL_SELF;}
+	@Override protected int canAffectCode(){return CAN_MOBS;}
+	@Override public int classificationCode(){return Ability.ACODE_SPELL|Ability.DOMAIN_DIVINATION;}
+
+	@Override
+	public void unInvoke()
+	{
+		if(!(affected instanceof MOB))
+			return;
+		final MOB mob=(MOB)affected;
+
+		super.unInvoke();
+		if(canBeUninvoked())
+			if((mob.location()!=null)&&(!mob.amDead()))
+				mob.tell(mob,null,null,L("<S-YOUPOSS> arms length magic fades."));
+	}
+
+  @Override
+public int castingQuality(MOB mob, Physical target)
+  {
+	  if(mob!=null)
+	  {
+		  if((!mob.isInCombat())||(mob.rangeToTarget()==0))
+			  return Ability.QUALITY_INDIFFERENT;
+	  }
+	  return super.castingQuality(mob,target);
+  }
+
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
+	{
+		if(!super.okMessage(myHost, msg))
+			return false;
+		if((affected instanceof MOB)
+		&&(msg.target()==affected)
+		&&(msg.sourceMinor()==CMMsg.TYP_ADVANCE))
+		{
+			final MOB mob=(MOB)affected;
+			if((mob.getVictim()==msg.source())
+			&&(mob.location()!=null))
+			{
+		final CMMsg msg2=CMClass.getMsg(mob,mob.getVictim(),CMMsg.MSG_RETREAT,L("<S-NAME> predict(s) <T-YOUPOSS> advance and retreat(s)."));
+		if(mob.location().okMessage(mob,msg2))
+			mob.location().send(mob,msg2);
+			}
+		}
+		return true;
+	}
+
+	@Override
+	public boolean invoke(MOB mob, Vector commands, Physical givenTarget, boolean auto, int asLevel)
+	{
+		MOB target=mob;
+		if((auto)&&(givenTarget!=null)&&(givenTarget instanceof MOB))
+			target=(MOB)givenTarget;
+		if(target.fetchEffect(this.ID())!=null)
+		{
+			mob.tell(target,null,null,L("<S-NAME> already <S-IS-ARE> keeping enemies at arms length."));
+			return false;
+		}
+
+		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
+			return false;
+
+		final boolean success=proficiencyCheck(mob,0,auto);
+
+		if(success)
+		{
+			final CMMsg msg=CMClass.getMsg(mob,null,this,verbalCastCode(mob,target,auto),auto?L("<T-NAME> begin(s) keeping <T-HIS-HER> enemies at arms length!"):L("^S<S-NAME> incant(s) distantly!^?"));
+			if(mob.location().okMessage(mob,msg))
+			{
+				mob.location().send(mob,msg);
+				int ticks=3 + Math.round(super.getXLEVELLevel(mob)/3);
+				if(!mob.isInCombat())
+					ticks++;
+				beneficialAffect(mob,target,asLevel,ticks);
+			}
+		}
+		else
+			beneficialVisualFizzle(mob,null,L("<S-NAME> incant(s) distantly, but the spell fizzles."));
+
+		return success;
+	}
+}

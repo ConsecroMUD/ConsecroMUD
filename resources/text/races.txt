@@ -1,0 +1,25 @@
+\n\r
+#====================================================================#
+|                         -+-- RACE LIST --+-                        |
+#====================================================================#
+| TROLL       : large ugly bridge dwellers with a nack for climbing  |
+| VAMPIRE     : half-dead followers of the night, thirsty for blood  |
+| MUMMY       : half-living guardians with some noble purpose        |
+| WEREWOLF    : half-human, half-wolf, and make very strong hunters  |
+| ZOMBIE      : mindless undead cannabalists that roam the land      |
+| JUGGERNAUT  : born of steel these warriors are very hardy but slow |
+| LEPRECHAUN  : small tricksters that enjoy making one sided deals   |
+| NOMAD       : humans looking for a place to call home              |
+| WATCHER     : nothing is known except they can vanish into portals |
+| LICH        : undead creatures by means of black magic             |
+| SKELETON    : reanimated bone warriors                             |
+| CENTAUR     : half-human, half-horse, known for their drunkenness  |
+| AMAZON      : women warriors with a thirst for power and war       |
+| FAE         : fairies of the elements                              |
+| SKINWALKER  : cursed creatures that steal the form of others       |
+| GARGOYLE    : winged stone beasts                                  |
+| WENDIGO     : cannabilistic hunter that likes the dark             |
+| ATLANTIAN   : creatures born from the city under the sea           |
+| SHADE       : humanoids that have merged with the shadows          |
+| GENIE       : loyal beings that follow an order of the lamp        |
+#====================================================================#

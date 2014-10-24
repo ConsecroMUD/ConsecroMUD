@@ -1,0 +1,87 @@
+package com.suscipio_solutions.consecro_mud.Abilities.Spells;
+import java.util.Vector;
+
+import com.suscipio_solutions.consecro_mud.Abilities.interfaces.Ability;
+import com.suscipio_solutions.consecro_mud.Common.interfaces.CMMsg;
+import com.suscipio_solutions.consecro_mud.Common.interfaces.PhyStats;
+import com.suscipio_solutions.consecro_mud.Items.interfaces.Item;
+import com.suscipio_solutions.consecro_mud.Items.interfaces.RawMaterial;
+import com.suscipio_solutions.consecro_mud.Items.interfaces.Wearable;
+import com.suscipio_solutions.consecro_mud.Locales.interfaces.Room;
+import com.suscipio_solutions.consecro_mud.MOBS.interfaces.MOB;
+import com.suscipio_solutions.consecro_mud.core.CMClass;
+import com.suscipio_solutions.consecro_mud.core.CMLib;
+import com.suscipio_solutions.consecro_mud.core.interfaces.Physical;
+
+
+
+@SuppressWarnings("rawtypes")
+public class Spell_MysticShine extends Spell
+{
+	@Override public String ID() { return "Spell_MysticShine"; }
+	private final static String localizedName = CMLib.lang().L("Mystic Shine");
+	@Override public String name() { return localizedName; }
+	private final static String localizedStaticDisplay = CMLib.lang().L("(Mystic Shine)");
+	@Override public String displayText() { return localizedStaticDisplay; }
+	@Override public int abstractQuality(){ return Ability.QUALITY_OK_SELF;}
+	@Override protected int canAffectCode(){return CAN_ITEMS;}
+	@Override protected int canTargetCode(){return CAN_ITEMS;}
+	@Override public int classificationCode(){return Ability.ACODE_SPELL|Ability.DOMAIN_ALTERATION;}
+
+	@Override
+	public void affectPhyStats(Physical affected, PhyStats affectableStats)
+	{
+		if(!(affected instanceof Room))
+			affectableStats.setDisposition(affectableStats.disposition()|PhyStats.IS_LIGHTSOURCE);
+		if(CMLib.flags().isInDark(affected))
+			affectableStats.setDisposition(affectableStats.disposition()-PhyStats.IS_DARK);
+	}
+	@Override
+	public void unInvoke()
+	{
+		// undo the affects of this spell
+		final Room room=CMLib.map().roomLocation(affected);
+		if((canBeUninvoked())&&(room!=null))
+			room.showHappens(CMMsg.MSG_OK_VISUAL,affected,L("The gleam upon <S-NAME> dims."));
+		super.unInvoke();
+		if((canBeUninvoked())&&(room!=null))
+			room.recoverRoomStats();
+	}
+
+	@Override
+	public boolean invoke(MOB mob, Vector commands, Physical givenTarget, boolean auto, int asLevel)
+	{
+		final Physical target=getTarget(mob,mob.location(),givenTarget,commands,Wearable.FILTER_ANY);
+		if(target==null)
+		{
+			return false;
+		}
+		if((!(target instanceof Item))
+		||(((((Item)target).material()&RawMaterial.MATERIAL_MASK)!=RawMaterial.MATERIAL_METAL)
+			&&((((Item)target).material()&RawMaterial.MATERIAL_MASK)!=RawMaterial.MATERIAL_MITHRIL)))
+		{
+			mob.tell(L("This magic only affects metallic items."));
+			return false;
+		}
+
+		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
+			return false;
+
+		final boolean success=proficiencyCheck(mob,0,auto);
+		final Room room=mob.location();
+		if(success)
+		{
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?L("^S<T-NAME> begin(s) to really shine!"):L("^S<S-NAME> cause(s) the surface of <T-NAME> to mystically shine!^?"));
+			if(room.okMessage(mob,msg))
+			{
+				room.send(mob,msg);
+				beneficialAffect(mob,target,asLevel,0);
+				room.recoverRoomStats(); // attempt to handle followers
+			}
+		}
+		else
+			beneficialWordsFizzle(mob,mob.location(),L("<S-NAME> attempt(s) to cause shininess, but fail(s)."));
+
+		return success;
+	}
+}

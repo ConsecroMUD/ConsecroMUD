@@ -1,0 +1,90 @@
+package com.suscipio_solutions.consecro_mud.Abilities.Properties;
+import com.suscipio_solutions.consecro_mud.Abilities.interfaces.Ability;
+import com.suscipio_solutions.consecro_mud.Common.interfaces.CMMsg;
+import com.suscipio_solutions.consecro_mud.Common.interfaces.PhyStats;
+import com.suscipio_solutions.consecro_mud.Exits.interfaces.Exit;
+import com.suscipio_solutions.consecro_mud.Locales.interfaces.Room;
+import com.suscipio_solutions.consecro_mud.MOBS.interfaces.MOB;
+import com.suscipio_solutions.consecro_mud.core.CMClass;
+import com.suscipio_solutions.consecro_mud.core.CMLib;
+import com.suscipio_solutions.consecro_mud.core.interfaces.Environmental;
+import com.suscipio_solutions.consecro_mud.core.interfaces.Physical;
+
+
+public class Prop_Crawlspace extends Property
+{
+	@Override public String ID() { return "Prop_Crawlspace"; }
+	@Override public String name(){ return "Room navigation limitation";}
+	@Override protected int canAffectCode(){return Ability.CAN_EXITS|Ability.CAN_ROOMS|Ability.CAN_AREAS;}
+	@Override
+	public String accountForYourself()
+	{ return "Must be crawled through.";	}
+
+	@Override public long flags(){return Ability.FLAG_ADJUSTER;}
+
+	@Override
+	public void affectPhyStats(Physical affected, PhyStats affectableStats)
+	{
+		super.affectPhyStats(affected, affectableStats);
+		affectableStats.setSensesMask(affectableStats.sensesMask()|PhyStats.SENSE_ROOMCRUNCHEDIN);
+	}
+
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
+	{
+		if((affected!=null)&&((affected instanceof Room)||(affected instanceof Exit)))
+		{
+			switch(msg.targetMinor())
+			{
+			case CMMsg.TYP_FLEE:
+			case CMMsg.TYP_ENTER:
+			case CMMsg.TYP_LEAVE:
+				if(((msg.amITarget(affected))||(msg.tool()==affected))
+				&&(msg.sourceMinor()!=CMMsg.TYP_RECALL)
+				&&(msg.source().phyStats().height()>24)
+				&&(!CMLib.flags().isSitting(msg.source())))
+				{
+					if(msg.targetMinor()==CMMsg.TYP_FLEE)
+					{
+						final CMMsg sitMsg=CMClass.getMsg(msg.source(),null,null,CMMsg.MSG_SIT,null);
+						final Room R=msg.source().location();
+						if((R!=null)
+						&&(!CMLib.flags().isSitting(msg.source()))
+						&&(R.okMessage(msg.source(),sitMsg)))
+							R.send(msg.source(),sitMsg);
+					}
+					else
+					if(msg.source().phyStats().height()>120)
+					{
+						msg.source().tell(L("You cannot fit in there."));
+						return false;
+					}
+					msg.source().tell(L("You must crawl that way."));
+					return false;
+				}
+				break;
+			case CMMsg.TYP_STAND:
+				if((affected instanceof Room)
+				&&(msg.source().phyStats().height()>12))
+				{
+					if(CMLib.flags().isSleeping(msg.source()))
+					{
+						final MOB mob=msg.source();
+						int oldDisposition = mob.basePhyStats().disposition();
+						oldDisposition=oldDisposition&(~(PhyStats.IS_SLEEPING|PhyStats.IS_SNEAKING|PhyStats.IS_SITTING|PhyStats.IS_CUSTOM));
+						mob.basePhyStats().setDisposition(oldDisposition|PhyStats.IS_SITTING);
+						mob.recoverPhyStats();
+						mob.recoverCharStats();
+						mob.recoverMaxState();
+						mob.tell(L("You wake up, but you are still crawling."));
+						return false;
+					}
+					msg.source().tell(L("You cannot stand up here, try crawling."));
+					return false;
+				}
+				break;
+			}
+		}
+		return super.okMessage(myHost,msg);
+	}
+}

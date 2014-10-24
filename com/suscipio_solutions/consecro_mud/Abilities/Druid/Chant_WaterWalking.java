@@ -1,0 +1,158 @@
+package com.suscipio_solutions.consecro_mud.Abilities.Druid;
+import java.util.Vector;
+
+import com.suscipio_solutions.consecro_mud.Abilities.interfaces.Ability;
+import com.suscipio_solutions.consecro_mud.Common.interfaces.CMMsg;
+import com.suscipio_solutions.consecro_mud.Common.interfaces.PhyStats;
+import com.suscipio_solutions.consecro_mud.Exits.interfaces.Exit;
+import com.suscipio_solutions.consecro_mud.Locales.interfaces.Room;
+import com.suscipio_solutions.consecro_mud.MOBS.interfaces.MOB;
+import com.suscipio_solutions.consecro_mud.core.CMClass;
+import com.suscipio_solutions.consecro_mud.core.CMLib;
+import com.suscipio_solutions.consecro_mud.core.Directions;
+import com.suscipio_solutions.consecro_mud.core.interfaces.Environmental;
+import com.suscipio_solutions.consecro_mud.core.interfaces.Physical;
+
+
+
+@SuppressWarnings("rawtypes")
+public class Chant_WaterWalking extends Chant
+{
+	@Override public String ID() { return "Chant_WaterWalking"; }
+	private final static String localizedName = CMLib.lang().L("Water Walking");
+	@Override public String name() { return localizedName; }
+	private final static String localizedStaticDisplay = CMLib.lang().L("(Water Walking)");
+	@Override public String displayText() { return localizedStaticDisplay; }
+	@Override public int classificationCode(){return Ability.ACODE_CHANT|Ability.DOMAIN_ENDURING;}
+	@Override public int abstractQuality(){return Ability.QUALITY_OK_SELF;}
+	protected boolean triggerNow=false;
+
+	@Override
+	public void affectPhyStats(Physical affected, PhyStats affectableStats)
+	{
+		super.affectPhyStats(affected,affectableStats);
+		if(affected instanceof MOB)
+		{
+			final MOB mob=(MOB)affected;
+			if(triggerNow||
+			   ((mob.location()!=null)
+				&&((mob.location().domainType()==Room.DOMAIN_OUTDOORS_WATERSURFACE)
+				   ||(mob.location().domainType()==Room.DOMAIN_INDOORS_WATERSURFACE))))
+				affectableStats.setDisposition(affectableStats.disposition()|PhyStats.IS_FLYING);
+		}
+	}
+
+
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
+	{
+		if(!super.okMessage(myHost,msg)) return false;
+		if(affected==null) return true;
+		final MOB mob=(MOB)affected;
+		if((msg.amISource(mob))
+		&&(mob.location()!=null)
+		&&(msg.target()!=null)
+		&&(msg.target() instanceof Room))
+		{
+			if((msg.sourceMinor()==CMMsg.TYP_ENTER)
+			&&((mob.location().domainType()==Room.DOMAIN_OUTDOORS_WATERSURFACE)
+				||(mob.location().domainType()==Room.DOMAIN_INDOORS_WATERSURFACE))
+			&&(msg.target()==mob.location().getRoomInDir(Directions.UP)))
+			{
+				msg.source().tell(L("Your water walking magic prevents you from ascending from the water surface."));
+				return false;
+			}
+			else
+			if((msg.sourceMinor()==CMMsg.TYP_LEAVE)
+			&&(mob.location().domainType()!=Room.DOMAIN_OUTDOORS_WATERSURFACE)
+			&&(mob.location().domainType()!=Room.DOMAIN_INDOORS_WATERSURFACE)
+			&&(msg.tool()!=null)
+			&&(msg.tool() instanceof Exit))
+			{
+				for(int d=Directions.NUM_DIRECTIONS()-1;d>=0;d--)
+				{
+					final Room R=mob.location().getRoomInDir(d);
+					if((R!=null)
+					&&(mob.location().getReverseExit(d)==msg.tool())
+					&&((R.domainType()==Room.DOMAIN_OUTDOORS_WATERSURFACE)
+					||(R.domainType()==Room.DOMAIN_INDOORS_WATERSURFACE)))
+					{
+						triggerNow=true;
+						msg.source().recoverPhyStats();
+						return true;
+					}
+				}
+			}
+		}
+		return true;
+	}
+
+	@Override
+	public void executeMsg(final Environmental myHost, final CMMsg msg)
+	{
+		super.executeMsg(myHost,msg);
+		if(triggerNow)triggerNow=false;
+	}
+
+	@Override
+	public void unInvoke()
+	{
+		// undo the affects of this spell
+		if(!(affected instanceof MOB))
+			return;
+		final MOB mob=(MOB)affected;
+		super.unInvoke();
+
+		if(canBeUninvoked())
+			mob.tell(L("You have a sinking feeling that your water walking ability is gone."));
+	}
+
+
+
+	@Override
+	public boolean invoke(MOB mob, Vector commands, Physical givenTarget, boolean auto, int asLevel)
+	{
+		MOB target=mob;
+		if((auto)&&(givenTarget!=null)&&(givenTarget instanceof MOB))
+			target=(MOB)givenTarget;
+
+		if(target.fetchEffect(this.ID())!=null)
+		{
+			mob.tell(target,null,null,L("<S-NAME> <S-IS-ARE> already a water walker."));
+			return false;
+		}
+
+		// the invoke method for spells receives as
+		// parameters the invoker, and the REMAINING
+		// command line parameters, divided into words,
+		// and added as String objects to a vector.
+		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
+			return false;
+
+		boolean success=proficiencyCheck(mob,0,auto);
+
+		if(success)
+		{
+			// it worked, so build a copy of this ability,
+			// and add it to the affects list of the
+			// affected MOB.  Then tell everyone else
+			// what happened.
+			invoker=mob;
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?"":L("^S<S-NAME> chant(s) to <T-NAMESELF>.^?"));
+			if(mob.location().okMessage(mob,msg))
+			{
+				mob.location().send(mob,msg);
+				if(target.location()==mob.location())
+				{
+					target.location().show(target,null,CMMsg.MSG_OK_ACTION,L("<S-NAME> feel(s) a little lighter!"));
+					success=beneficialAffect(mob,target,asLevel,0)!=null;
+				}
+			}
+		}
+		else
+			return beneficialWordsFizzle(mob,target,L("<S-NAME> chant(s) to <T-NAMESELF>, but the magic fizzles."));
+
+		// return whether it worked
+		return success;
+	}
+}

@@ -1,0 +1,208 @@
+package com.suscipio_solutions.consecro_mud.Abilities.Properties;
+import java.util.Enumeration;
+import java.util.Vector;
+
+import com.suscipio_solutions.consecro_mud.Abilities.interfaces.Ability;
+import com.suscipio_solutions.consecro_mud.Abilities.interfaces.TriggeredAffect;
+import com.suscipio_solutions.consecro_mud.Areas.interfaces.Area;
+import com.suscipio_solutions.consecro_mud.Common.interfaces.CMMsg;
+import com.suscipio_solutions.consecro_mud.Common.interfaces.CharStats;
+import com.suscipio_solutions.consecro_mud.Exits.interfaces.Exit;
+import com.suscipio_solutions.consecro_mud.Items.interfaces.Armor;
+import com.suscipio_solutions.consecro_mud.Items.interfaces.Container;
+import com.suscipio_solutions.consecro_mud.Items.interfaces.Food;
+import com.suscipio_solutions.consecro_mud.Items.interfaces.Item;
+import com.suscipio_solutions.consecro_mud.Items.interfaces.Weapon;
+import com.suscipio_solutions.consecro_mud.Locales.interfaces.Room;
+import com.suscipio_solutions.consecro_mud.MOBS.interfaces.MOB;
+import com.suscipio_solutions.consecro_mud.core.CMLib;
+import com.suscipio_solutions.consecro_mud.core.CMParms;
+import com.suscipio_solutions.consecro_mud.core.CMStrings;
+import com.suscipio_solutions.consecro_mud.core.interfaces.Drink;
+import com.suscipio_solutions.consecro_mud.core.interfaces.Environmental;
+import com.suscipio_solutions.consecro_mud.core.interfaces.Rideable;
+
+
+@SuppressWarnings("rawtypes")
+public class Prop_ReqStat extends Property implements TriggeredAffect
+{
+	@Override public String ID() { return "Prop_ReqStat"; }
+	@Override public String name(){ return "Require stat values";}
+	@Override protected int canAffectCode(){return Ability.CAN_ROOMS|Ability.CAN_AREAS|Ability.CAN_EXITS|Ability.CAN_ITEMS;}
+	private boolean noSneak=false;
+
+	@Override public long flags(){return Ability.FLAG_ZAPPER;}
+
+	@Override
+	public int triggerMask()
+	{
+		if((affected instanceof Room)||(affected instanceof Area)||(affected instanceof Exit))
+			return TriggeredAffect.TRIGGER_ENTER;
+		if((affected instanceof Armor)||(affected instanceof Weapon))
+			return TriggeredAffect.TRIGGER_WEAR_WIELD;
+		if((affected instanceof Drink)||(affected instanceof Food))
+			return TriggeredAffect.TRIGGER_USE;
+		if((affected instanceof Room)||(affected instanceof Area)||(affected instanceof Exit))
+			return TriggeredAffect.TRIGGER_ENTER;
+		if(affected instanceof Container)
+			return TriggeredAffect.TRIGGER_DROP_PUTIN;
+		return TriggeredAffect.TRIGGER_WEAR_WIELD;
+	}
+
+	@Override
+	public void setMiscText(String txt)
+	{
+		noSneak=false;
+		final Vector parms=CMParms.parse(txt.toUpperCase());
+		String s;
+		for(final Enumeration p=parms.elements();p.hasMoreElements();)
+		{
+			s=(String)p.nextElement();
+			if(s.startsWith("NOSNEAK"))
+				noSneak=true;
+		}
+		super.setMiscText(txt);
+	}
+
+
+	@Override
+	public String accountForYourself()
+	{
+		return "Entry restricted as follows: "+CMLib.masking().maskDesc(miscText);
+	}
+
+	public boolean passesMuster(MOB mob, String msg)
+	{
+		if(mob==null) return false;
+		if(CMLib.flags().isATrackingMonster(mob))
+			return true;
+		if(CMLib.flags().isSneaking(mob)&&(!noSneak))
+			return true;
+		char[] comparator=new char[]{'\0'};
+		for(final int c : CharStats.CODES.ALLCODES())
+		{
+			if(!CMParms.getParmCompare(text(),CharStats.CODES.NAME(c),mob.charStats().getStat(c),comparator))
+			{
+				switch(comparator[0])
+				{
+				case '=':
+				case '!':
+					mob.tell(L("You aren't the right @x1 to @x2.",CMStrings.capitalizeAndLower(CharStats.CODES.NAME(c)),msg));
+					break;
+				case '<':
+					mob.tell(L("You are too @x1 to @x2.",CMStrings.capitalizeAndLower(CharStats.CODES.ATTDESC(c)),msg));
+					break;
+				case '>':
+					mob.tell(L("You are not @x1 enough to @x2.",CMStrings.capitalizeAndLower(CharStats.CODES.ATTDESC(c)),msg));
+					break;
+				}
+				return false;
+			}
+		}
+		return true;
+	}
+
+	@Override
+	public boolean okMessage(final Environmental myHost, final CMMsg msg)
+	{
+		if(affected!=null)
+		{
+			if((msg.target()==affected)
+			&&(affected instanceof Exit)
+			&&(((Exit)affected).hasADoor()))
+			{
+				switch(msg.targetMinor())
+				{
+				case CMMsg.TYP_OPEN:
+					if(passesMuster(msg.source(),((Exit)affected).openWord()+" that"))
+						return super.okMessage(myHost,msg);
+					return false;
+				case CMMsg.TYP_CLOSE:
+					if(passesMuster(msg.source(),((Exit)affected).closeWord()+" that"))
+						return super.okMessage(myHost,msg);
+					return false;
+				}
+			}
+			else
+			if((msg.target()==affected)
+			&&(affected instanceof Container)
+			&&(((Container)affected).hasADoor()))
+			{
+				switch(msg.targetMinor())
+				{
+				case CMMsg.TYP_OPEN:
+					if(passesMuster(msg.source(),"open that"))
+						return super.okMessage(myHost,msg);
+					return false;
+				case CMMsg.TYP_CLOSE:
+					if(passesMuster(msg.source(),"close that"))
+						return super.okMessage(myHost,msg);
+					return false;
+				}
+			}
+			else
+			if((msg.target()!=null)
+			&&(((msg.target() instanceof Room)&&(msg.targetMinor()==CMMsg.TYP_ENTER))
+			  ||((msg.target() instanceof Rideable)&&(msg.targetMinor()==CMMsg.TYP_SIT)))
+			&&(!CMLib.flags().isFalling(msg.source()))
+			&&((msg.amITarget(affected))||(msg.tool()==affected)||(affected instanceof Area)))
+			{
+				if(passesMuster(msg.source(),"go there"))
+					return super.okMessage(myHost,msg);
+				return false;
+			}
+			else
+			if((affected instanceof Item)
+			&&(((Item)affected).owner() instanceof MOB))
+			{
+				final Item myItem=(Item)affected;
+				if(msg.amISource((MOB)myItem.owner()))
+					switch(msg.sourceMinor())
+					{
+					case CMMsg.TYP_FILL:
+						if((myItem instanceof Drink)
+						&&(msg.tool()!=myItem)
+						&&(msg.amITarget(myItem)))
+						{
+							if(passesMuster(msg.source(),"fill that"))
+								return super.okMessage(myHost,msg);
+							return false;
+						}
+						break;
+					case CMMsg.TYP_WEAR:
+						if((myItem instanceof Armor)
+						&&(msg.amITarget(myItem)))
+						{
+							if(passesMuster(msg.source(),"wear that"))
+								return super.okMessage(myHost,msg);
+							return false;
+						}
+						break;
+					case CMMsg.TYP_PUT:
+					case CMMsg.TYP_INSTALL:
+						if((myItem instanceof Container)
+						&&(msg.amITarget(myItem)))
+						{
+							if(passesMuster(msg.source(),"put that in there"))
+								return super.okMessage(myHost,msg);
+							return false;
+						}
+						break;
+					case CMMsg.TYP_WIELD:
+					case CMMsg.TYP_HOLD:
+						if((!(myItem instanceof Drink))
+						&&(!(myItem instanceof Armor))
+						&&(!(myItem instanceof Container))
+						&&(msg.amITarget(myItem)))
+						{
+							if(passesMuster(msg.source(),"hold that"))
+								return super.okMessage(myHost,msg);
+							return false;
+						}
+						break;
+					}
+			}
+		}
+		return super.okMessage(myHost,msg);
+	}
+}

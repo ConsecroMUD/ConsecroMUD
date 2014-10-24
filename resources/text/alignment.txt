@@ -1,0 +1,15 @@
+\n\r
+#====================================================================#
+|                         -+-- ALIGNMENT --+-                        |
+#====================================================================#
+| In combat, the amount of experience you receive from the           |
+| vanquishing of a foe depends entirely on your alignment versus     |
+| that of the creature you have killed.  In general, if you are      |
+| Good and you kill a Good creature, or Evil and kill an Evil        |
+| creature, or Neutral and kill a Neutral creature, you receive      |
+| NO experience.  The amount of experience can vary depending upon   |
+| how close to perfect Goodness, perfect Evil, or pure Neutrality    |
+| you are.  In addition to receiving no experience for violating     |
+| this rule, you will find your characters alignment slowly changing |
+| with each repeat offense.                                          |
+#====================================================================#

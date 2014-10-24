@@ -1,0 +1,105 @@
+package com.suscipio_solutions.consecro_mud.Abilities.Songs;
+import java.util.Vector;
+
+import com.suscipio_solutions.consecro_mud.Abilities.interfaces.Ability;
+import com.suscipio_solutions.consecro_mud.Common.interfaces.CMMsg;
+import com.suscipio_solutions.consecro_mud.Items.interfaces.Item;
+import com.suscipio_solutions.consecro_mud.Items.interfaces.Weapon;
+import com.suscipio_solutions.consecro_mud.Items.interfaces.Wearable;
+import com.suscipio_solutions.consecro_mud.MOBS.interfaces.MOB;
+import com.suscipio_solutions.consecro_mud.core.CMClass;
+import com.suscipio_solutions.consecro_mud.core.CMLib;
+import com.suscipio_solutions.consecro_mud.core.CMath;
+import com.suscipio_solutions.consecro_mud.core.interfaces.Physical;
+
+
+@SuppressWarnings("rawtypes")
+public class Skill_FireBreathing extends BardSkill
+{
+	@Override public String ID() { return "Skill_FireBreathing"; }
+	private final static String localizedName = CMLib.lang().L("Fire Breathing");
+	@Override public String name() { return localizedName; }
+	@Override public int abstractQuality(){return Ability.QUALITY_MALICIOUS;}
+	@Override protected int canAffectCode(){return 0;}
+	@Override protected int canTargetCode(){return Ability.CAN_MOBS;}
+	private static final String[] triggerStrings =I(new String[] {"FIREBREATHING","FIREBREATH"});
+	@Override public String[] triggerStrings(){return triggerStrings;}
+	@Override public int maxRange(){return adjustedMaxInvokerRange(5);}
+	@Override public int minRange(){return 0;}
+
+	public Item getFireSource(MOB mob)
+	{
+		for(int i=0;i<mob.numItems();i++)
+		{
+			final Item I=mob.getItem(i);
+			if((CMLib.flags().isOnFire(I))
+			&&(!I.amWearingAt(Wearable.IN_INVENTORY))
+			&&(I.container()==null))
+				return I;
+		}
+		return null;
+	}
+
+	@Override
+	public int castingQuality(MOB mob, Physical target)
+	{
+		if(mob!=null)
+		{
+			if(getFireSource(mob)==null)
+				return Ability.QUALITY_INDIFFERENT;
+		}
+		return super.castingQuality(mob,target);
+	}
+
+	@Override
+	public boolean invoke(MOB mob, Vector commands, Physical givenTarget, boolean auto, int asLevel)
+	{
+		final MOB target=this.getTarget(mob,commands,givenTarget);
+		if(target==null) return false;
+
+		final Item fireSource=getFireSource(mob);
+		if((!auto)&&(fireSource==null))
+		{
+			mob.tell(L("You need to be holding some fire source to breathe fire."));
+			return false;
+		}
+		// the invoke method for spells receives as
+		// parameters the invoker, and the REMAINING
+		// command line parameters, divided into words,
+		// and added as String objects to a vector.
+		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
+			return false;
+
+		final boolean success=proficiencyCheck(mob,0,auto);
+
+		if(success)
+		{
+			// it worked, so build a copy of this ability,
+			// and add it to the affects list of the
+			// affected MOB.  Then tell everyone else
+			// what happened.
+			final CMMsg msg=CMClass.getMsg(mob,target,this,CMMsg.MASK_MALICIOUS|CMMsg.MSG_NOISYMOVEMENT|(auto?CMMsg.MASK_ALWAYS:0),(auto?L("Suddenly flames come up and attack <T-HIM-HER>!^?"):((fireSource!=null)?L("^S<S-NAME> hold(s) @x1 up and puff(s) fire at <T-NAMESELF>!^?",fireSource.name()):L("<S-NAME> breath(es) fire at <T-NAMESELF>!^?")))+CMLib.protocol().msp("fireball.wav",40));
+			final CMMsg msg2=CMClass.getMsg(mob,target,this,CMMsg.MSK_CAST_MALICIOUS_VERBAL|CMMsg.TYP_FIRE|(auto?CMMsg.MASK_ALWAYS:0),null);
+			if((mob.location().okMessage(mob,msg))&&((mob.location().okMessage(mob,msg2))))
+			{
+				mob.location().send(mob,msg);
+				mob.location().send(mob,msg2);
+				final int numDice = (int)Math.round(CMath.div(adjustedLevel(mob,asLevel)+(2*super.getX1Level(mob)),1.5))+1;
+				int damage = CMLib.dice().roll(3, numDice, 0);
+				if(msg2.value()>0)
+					damage = (int)Math.round(CMath.div(damage,2.0));
+
+				if(target.location()==mob.location())
+					CMLib.combat().postDamage(mob,target,this,damage,CMMsg.MASK_ALWAYS|CMMsg.TYP_FIRE,Weapon.TYPE_BURNING,"The flames <DAMAGE> <T-NAME>!");
+			}
+			if(fireSource!=null)
+				fireSource.destroy();
+		}
+		else
+			return maliciousFizzle(mob,target,L("<S-NAME> attempt(s) to breathe fire at <T-NAMESELF>, but only puff(s) smoke."));
+
+
+		// return whether it worked
+		return success;
+	}
+}

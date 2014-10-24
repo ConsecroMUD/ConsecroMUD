@@ -1,0 +1,124 @@
+package com.suscipio_solutions.consecro_mud.Abilities.Prayers;
+import java.util.List;
+import java.util.Vector;
+
+import com.suscipio_solutions.consecro_mud.Abilities.interfaces.Ability;
+import com.suscipio_solutions.consecro_mud.Abilities.interfaces.DiseaseAffect;
+import com.suscipio_solutions.consecro_mud.Abilities.interfaces.MendingSkill;
+import com.suscipio_solutions.consecro_mud.Common.interfaces.CMMsg;
+import com.suscipio_solutions.consecro_mud.MOBS.interfaces.MOB;
+import com.suscipio_solutions.consecro_mud.core.CMClass;
+import com.suscipio_solutions.consecro_mud.core.CMLib;
+import com.suscipio_solutions.consecro_mud.core.interfaces.Physical;
+
+
+
+@SuppressWarnings({"unchecked","rawtypes"})
+public class Prayer_CureDisease extends Prayer implements MendingSkill
+{
+	@Override public String ID() { return "Prayer_CureDisease"; }
+	private final static String localizedName = CMLib.lang().L("Cure Disease");
+	@Override public String name() { return localizedName; }
+	@Override public int classificationCode(){return Ability.ACODE_PRAYER|Ability.DOMAIN_RESTORATION;}
+	@Override public int abstractQuality(){ return Ability.QUALITY_OK_OTHERS;}
+	@Override public long flags(){return Ability.FLAG_HOLY;}
+	protected int abilityCode=0;
+
+	@Override
+	public void setAbilityCode(int newCode)
+	{
+		super.setAbilityCode(newCode);
+		this.abilityCode=newCode;
+	}
+
+
+	@Override
+	public boolean supportsMending(Physical item)
+	{
+		if(!(item instanceof MOB)) return false;
+		final boolean canMend=returnOffensiveAffects(item).size()>0;
+		return canMend;
+	}
+
+	public List<Ability> returnOffensiveAffects(Physical fromMe)
+	{
+		final Vector offenders=new Vector();
+
+		for(int a=0;a<fromMe.numEffects();a++) // personal
+		{
+			final Ability A=fromMe.fetchEffect(a);
+			if((A!=null)&&(A instanceof DiseaseAffect))
+				offenders.addElement(A);
+		}
+		return offenders;
+	}
+
+	@Override
+	public int castingQuality(MOB mob, Physical target)
+	{
+		if(mob!=null)
+		{
+			if(target instanceof MOB)
+			{
+				if(supportsMending(target))
+					return super.castingQuality(mob, target,Ability.QUALITY_BENEFICIAL_OTHERS);
+			}
+		}
+		return super.castingQuality(mob,target);
+	}
+
+	@Override
+	public boolean invoke(MOB mob, Vector commands, Physical givenTarget, boolean auto, int asLevel)
+	{
+		final MOB target=this.getTarget(mob,commands,givenTarget);
+		if(target==null) return false;
+
+		if(!super.invoke(mob,commands,givenTarget,auto,asLevel))
+			return false;
+
+		final boolean success=proficiencyCheck(mob,0,auto);
+		final List<Ability> offensiveAffects=returnOffensiveAffects(target);
+
+		if((success)&&(offensiveAffects.size()>0))
+		{
+			// it worked, so build a copy of this ability,
+			// and add it to the affects list of the
+			// affected MOB.  Then tell everyone else
+			// what happened.
+			final CMMsg msg=CMClass.getMsg(mob,target,this,verbalCastCode(mob,target,auto),auto?L("A healing glow surrounds <T-NAME>."):L("^S<S-NAME> @x1 for <T-YOUPOSS> health.^?",prayWord(mob)));
+			if(mob.location().okMessage(mob,msg))
+			{
+				mob.location().send(mob,msg);
+				boolean badOnes=false;
+				for(int a=offensiveAffects.size()-1;a>=0;a--)
+				{
+					final Ability A=(offensiveAffects.get(a));
+					if(A instanceof DiseaseAffect)
+					{
+						if((A.invoker()!=mob)
+						&&((((DiseaseAffect)A).difficultyLevel()*10)>adjustedLevel(mob,asLevel)+abilityCode))
+							badOnes=true;
+						else
+							A.unInvoke();
+					}
+					else
+						A.unInvoke();
+
+				}
+				if(badOnes)
+					mob.location().show(mob,target,null,CMMsg.MSG_OK_VISUAL,L("<T-NAME> had diseases too powerful for <S-YOUPOSS> magic."));
+				else
+					mob.location().show(mob,target,null,CMMsg.MSG_OK_VISUAL,L("<S-NAME> cure(s) the diseases in <T-NAMESELF>."));
+				if(!CMLib.flags().stillAffectedBy(target,offensiveAffects,false))
+					target.tell(L("You feel much better!"));
+			}
+		}
+		else
+		if(!auto)
+			beneficialWordsFizzle(mob,target,auto?"":L("<S-NAME> @x1 for <T-NAMESELF>, but nothing happens.",prayWord(mob)));
+
+
+		// return whether it worked
+		return success;
+	}
+}
