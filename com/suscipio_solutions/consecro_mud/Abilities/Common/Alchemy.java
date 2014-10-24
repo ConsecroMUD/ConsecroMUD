@@ -22,7 +22,6 @@ import com.suscipio_solutions.consecro_mud.core.interfaces.Drink;
 import com.suscipio_solutions.consecro_mud.core.interfaces.Physical;
 import com.suscipio_solutions.consecro_mud.core.interfaces.Tickable;
 
-*\ test *\
 @SuppressWarnings({"unchecked","rawtypes"})
 public class Alchemy extends SpellCraftingSkill implements ItemCraftor
 {
