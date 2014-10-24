@@ -1,6 +1,6 @@
 +===================+<br/>
-|    ConsecroMUD    |<br/>
-+===================+<br/>
-|  Land of Curses!  |<br/>
+ConsecroMUD<br/>
++-------------------+<br/>
+Land of Curses!<br/>
 +===================+<br/>
 
