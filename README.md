@@ -1,3 +1,5 @@
-ConsecroMUD
-===========
-Land of the Cursed!
++===================+
+|    ConsecroMUD    |
++===================+
+|  Land of Curses!  |
++===================+
