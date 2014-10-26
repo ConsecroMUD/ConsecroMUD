@@ -9,7 +9,7 @@
 </head>
 
 <body>
-<CENTER>
+<center>
 <TABLE WIDTH=100% BORDER=1>
 <TR>
     <TD WIDTH=25% ALIGN=CENTER VALIGN=TOP>
@@ -55,6 +55,6 @@ MUD Server: <b>@MUDSERVERVERSION@</b> on port <b>@MUDSERVERPORT@</b>: <b>@MUDSER
 	</TABLE>
 	</FORM>
 <br>
-</DIV>
+</center>
 </body>
 </html>
