@@ -15,11 +15,11 @@
     <TD WIDTH=25% ALIGN=CENTER VALIGN=TOP>
     <B><FONT COLOR=WHITE>Builders Guides</FONT></B><br>
     <a target=OtherBrowser href="pub/guides/ImmortalGuide.html"><FONT COLOR=BLUE>Immortal's Guide</FONT></a><BR>
-    <A target=OtherBrowser HREF="pub/guides/GameBuildersGuide.html"><FONT COLOR=BLUE>Game Builders Guide</FONT></A><br>
-    <A target=OtherBrowser HREF="pub/guides/Scriptable.html"><FONT COLOR=BLUE>Scripting Guide</FONT></A><br>
-    <A target=OtherBrowser HREF="pub/guides/MUDChat.html"><FONT COLOR=BLUE>MUDChat Guide</FONT></A><br>
-    <A target=OtherBrowser HREF="pub/guides/MUDGrinder.html"><FONT COLOR=BLUE>MUDGrinder Guide</FONT></A><br>
-    <A target=OtherBrowser HREF="pub/guides/RandomAreas.html"><FONT COLOR=BLUE>Random Areas Guide</FONT></A><br>
+    <A target=OtherBrowser href="pub/guides/GameBuildersGuide.html"><FONT COLOR=BLUE>Game Builders Guide</FONT></A><br>
+    <A target=OtherBrowser href="pub/guides/Scriptable.html"><FONT COLOR=BLUE>Scripting Guide</FONT></A><br>
+    <A target=OtherBrowser href="pub/guides/MUDChat.html"><FONT COLOR=BLUE>MUDChat Guide</FONT></A><br>
+    <A target=OtherBrowser href="pub/guides/MUDGrinder.html"><FONT COLOR=BLUE>MUDGrinder Guide</FONT></A><br>
+    <A target=OtherBrowser href="pub/guides/RandomAreas.html"><FONT COLOR=BLUE>Random Areas Guide</FONT></A><br>
     </TD>
     <TD WIDTH=25% ALIGN=CENTER VALIGN=TOP>
     <B><FONT COLOR=WHITE>Builders Lists</FONT></B><br>
@@ -30,11 +30,11 @@
     </TD>
     <TD WIDTH=25% ALIGN=CENTER VALIGN=TOP>
     <B><FONT COLOR=WHITE>Other Guides</FONT></B><br>
-    <A target=OtherBrowser HREF="pub/guides/InstallationGuide.html"><FONT COLOR=BLUE>Installation Guide</FONT></A><br>
-    <A target=OtherBrowser HREF="pub/guides/WebServer.html"><FONT COLOR=BLUE>Web Server guide</FONT></A><br>
-    <A target=OtherBrowser HREF="pub/guides/SMTPServer.html"><FONT COLOR=BLUE>SMTP Server guide</FONT></A><br>
-    <A target=OtherBrowser HREF="pub/guides/Programming.html"><FONT COLOR=BLUE>Programmers Guide</FONT></A><br>
-    <A target=OtherBrowser HREF="pub/guides/BuildersFAQ.html"><FONT COLOR=BLUE>Builders FAQ</FONT></A><br>
+    <A target=OtherBrowser href="pub/guides/InstallationGuide.html"><FONT COLOR=BLUE>Installation Guide</FONT></A><br>
+    <A target=OtherBrowser href="pub/guides/WebServer.html"><FONT COLOR=BLUE>Web Server guide</FONT></A><br>
+    <A target=OtherBrowser href="pub/guides/SMTPServer.html"><FONT COLOR=BLUE>SMTP Server guide</FONT></A><br>
+    <A target=OtherBrowser href="pub/guides/Programming.html"><FONT COLOR=BLUE>Programmers Guide</FONT></A><br>
+    <A target=OtherBrowser href="pub/guides/BuildersFAQ.html"><FONT COLOR=BLUE>Builders FAQ</FONT></A><br>
     </TD>
 </TR>
 </TABLE>
