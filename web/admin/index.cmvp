@@ -2,11 +2,9 @@
 
 <html>
 <head>
- 	<link rel="grinder icon" href="/images/grinder.ico" >
 	<!-- tell spiders to sod off -->
 	<meta name="ROBOTS" content="NOINDEX, NOFOLLOW">
 	<link rel="STYLESHEET" TYPE="TEXT/CSS" HREF="admin.css">
- 	<link rel="grinder icon" href="/images/grinder.ico" >
 	<title>@MUDSERVERVERSION@, @WEBSERVERVERSION@ '@WEBSERVERNAME@'</title>
 </head>
 
@@ -40,8 +38,8 @@
     </TD>
 </TR>
 </TABLE>
-<IMG SRC="images/pyramid.jpg" WIDTH=78 HEIGHT=122 ALT="" BORDER="0"><br>
-<h3>CoffeeMud Admin Server</H3>
+<br>
+<h3>ConsecroMUD Admin Server</H3>
 <B>@WEBSERVERVERSION@ '@WEBSERVERNAME@'</B> on port <B>@WEBSERVERPORT@</B><br>
 <br>
 MUD Server: <b>@MUDSERVERVERSION@</b> on port <b>@MUDSERVERPORT@</b>: <b>@MUDSERVERSTATUS@</B><br>
